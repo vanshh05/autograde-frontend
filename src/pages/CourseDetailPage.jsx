@@ -27,10 +27,32 @@ export default function CourseDetailPage() {
     setForms(f => ({ ...f, [cwId]: { ...(f[cwId] || {}), [field]: value } }));
   };
 
-  const getForm = (cwId) => forms[cwId] || { rubricContext: '', strictness: 'Medium', maxScore: 100, driveId: '', file: null };
+  // Extract the first Drive file ID from coursework materials (question paper)
+  const extractDriveId = (cw) => {
+    const materials = cw.materials || [];
+    for (const m of materials) {
+      if (m?.driveFile?.driveFile?.id) return m.driveFile.driveFile.id;
+      if (m?.driveFile?.id) return m.driveFile.id;
+    }
+    return '';
+  };
+
+  const getForm = (cw) => {
+    const cwId = typeof cw === 'string' ? cw : cw.id;
+    const defaults = typeof cw === 'object' ? {
+      rubricContext: '',
+      strictness: 'Medium',
+      // Use maxPoints from Classroom if available, fallback to 100
+      maxScore: cw.maxPoints ?? 100,
+      // Auto-extract Drive ID from materials — hidden from user
+      driveId: extractDriveId(cw),
+      file: null,
+    } : { rubricContext: '', strictness: 'Medium', maxScore: 100, driveId: '', file: null };
+    return { ...defaults, ...(forms[cwId] || {}) };
+  };
 
   const startJob = async (cw) => {
-    const f = getForm(cw.id);
+    const f = getForm(cw);
     if (!f.rubricContext) return toast.error('Rubric context is required');
     const fd = new FormData();
     fd.append('rubricContext', f.rubricContext);
@@ -100,7 +122,9 @@ export default function CourseDetailPage() {
           {courseWork.map((cw, i) => {
             const job = grading[cw.id];
             const isExpanded = expanded === cw.id;
-            const f = getForm(cw.id);
+            const f = getForm(cw);
+            const detectedDriveId = extractDriveId(cw);
+            const materialFiles = (cw.materials || []).filter(m => m?.driveFile);
 
             return (
               <div key={cw.id} className="card cw-item" style={{ animationDelay: `${i * 0.04}s` }}>
@@ -143,6 +167,27 @@ export default function CourseDetailPage() {
                     {(!job || job.state === 'failed') && (
                       <div className="grade-form">
                         <h3 className="form-title"><Zap size={15} /> Configure Grading</h3>
+
+                        {/* Auto-detected info from Classroom */}
+                        <div className="classroom-info">
+                          <div className="classroom-info-item">
+                            <span className="classroom-info-label">Max Score</span>
+                            <span className="classroom-info-value">
+                              {cw.maxPoints != null ? `${cw.maxPoints} pts` : 'Not set'}
+                              <span className="classroom-source">from Classroom</span>
+                            </span>
+                          </div>
+                          <div className="classroom-info-item">
+                            <span className="classroom-info-label">Question Paper</span>
+                            <span className="classroom-info-value">
+                              {detectedDriveId
+                                ? <><span style={{color:'var(--green)'}}>✓</span> Detected ({materialFiles.length} file{materialFiles.length !== 1 ? 's' : ''}) <span className="classroom-source">from Classroom</span></>
+                                : <span style={{color:'var(--text-3)'}}>No Drive files attached</span>
+                              }
+                            </span>
+                          </div>
+                        </div>
+
                         <div className="form-grid">
                           <div className="input-group" style={{ gridColumn: '1 / -1' }}>
                             <label className="label">Rubric / Instructions *</label>
@@ -164,15 +209,7 @@ export default function CourseDetailPage() {
                             </select>
                           </div>
                           <div className="input-group">
-                            <label className="label">Max Score</label>
-                            <input className="input" type="number" min={1} value={f.maxScore} onChange={e => updateForm(cw.id, 'maxScore', e.target.value)} />
-                          </div>
-                          <div className="input-group" style={{ gridColumn: '1 / -1' }}>
-                            <label className="label">Question Paper Drive ID (optional)</label>
-                            <input className="input" placeholder="Google Drive file ID for the question paper" value={f.driveId} onChange={e => updateForm(cw.id, 'driveId', e.target.value)} />
-                          </div>
-                          <div className="input-group" style={{ gridColumn: '1 / -1' }}>
-                            <label className="label">Reference / Answer Key File (optional)</label>
+                            <label className="label">Reference / Answer Key File <span style={{color:'var(--text-3)',fontWeight:400}}>(optional)</span></label>
                             <FileDropzone onFile={file => updateForm(cw.id, 'file', file)} currentFile={f.file} />
                           </div>
                         </div>
@@ -222,6 +259,28 @@ export default function CourseDetailPage() {
         .cw-description { font-size: 13px; color: var(--text-2); margin-bottom: 20px; line-height: 1.6; }
         .grade-form { background: var(--bg-2); border-radius: var(--radius-sm); padding: 20px; }
         .form-title { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 600; margin-bottom: 16px; }
+        .classroom-info {
+          display: flex; gap: 10px; flex-wrap: wrap;
+          background: var(--bg-3); border: 1px solid var(--border);
+          border-radius: var(--radius-sm); padding: 12px 14px;
+          margin-bottom: 16px;
+        }
+        .classroom-info-item {
+          display: flex; flex-direction: column; gap: 3px;
+          flex: 1; min-width: 140px;
+        }
+        .classroom-info-label {
+          font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em;
+          color: var(--text-3); font-weight: 600;
+        }
+        .classroom-info-value {
+          font-size: 13px; color: var(--text); font-weight: 500;
+          display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+        }
+        .classroom-source {
+          font-size: 10px; color: var(--accent-2); font-family: 'DM Mono', monospace;
+          background: var(--accent-glow); padding: 1px 6px; border-radius: 99px;
+        }
         .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
         .job-done {
           display: flex; align-items: center; gap: 12px;
