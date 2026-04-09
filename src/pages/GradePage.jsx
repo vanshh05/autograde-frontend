@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { getDashboard } from '../api';
+import { getDashboard, getCourseWork } from '../api';
 import { ArrowLeft, Users, TrendingUp, Award, AlertCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -15,6 +15,7 @@ const REMARK_COLORS = {
 export default function GradePage() {
   const { courseId, courseWorkId } = useParams();
   const [results, setResults] = useState([]);
+  const [maxPoints, setMaxPoints] = useState(null);
   const [loading, setLoading] = useState(true);
   const [sort, setSort] = useState('score_desc');
   const [search, setSearch] = useState('');
@@ -22,8 +23,15 @@ export default function GradePage() {
 
   useEffect(() => {
     if (!courseId || !courseWorkId) return;
-    getDashboard(courseId, courseWorkId)
-      .then(d => setResults(d.results || []))
+    Promise.all([
+      getDashboard(courseId, courseWorkId),
+      getCourseWork(courseId),
+    ])
+      .then(([dashboard, cwData]) => {
+        setResults(dashboard.results || []);
+        const cw = (cwData.courseWork || []).find(c => c.id === courseWorkId);
+        if (cw?.maxPoints != null) setMaxPoints(cw.maxPoints);
+      })
       .catch(e => toast.error(e.message))
       .finally(() => setLoading(false));
   }, [courseId, courseWorkId]);
@@ -40,6 +48,8 @@ export default function GradePage() {
       return 0;
     });
 
+  // Use fetched maxPoints, fallback to highest score in results, fallback to 100
+  const resolvedMax = maxPoints ?? (results.length ? Math.max(...results.map(r => r.score)) : 100);
   const avg = results.length ? Math.round(results.reduce((s, r) => s + r.score, 0) / results.length) : 0;
   const top = results.length ? Math.max(...results.map(r => r.score)) : 0;
   const remarkDist = results.reduce((acc, r) => { acc[r.remark] = (acc[r.remark] || 0) + 1; return acc; }, {});
@@ -62,8 +72,8 @@ export default function GradePage() {
       {results.length > 0 && (
         <div className="grade-stats fade-up">
           <StatPill icon={<Users size={14} />} label="Students" value={results.length} />
-          <StatPill icon={<TrendingUp size={14} />} label="Average" value={`${avg}%`} />
-          <StatPill icon={<Award size={14} />} label="Top Score" value={`${top}%`} />
+          <StatPill icon={<TrendingUp size={14} />} label="Average" value={`${avg} / ${resolvedMax}`} />
+          <StatPill icon={<Award size={14} />} label="Top Score" value={`${top} / ${resolvedMax}`} />
           {Object.entries(remarkDist).map(([remark, count]) => (
             <StatPill key={remark} label={remark} value={count} small />
           ))}
@@ -103,7 +113,7 @@ export default function GradePage() {
             <thead>
               <tr>
                 <th>Student</th>
-                <th>Score</th>
+                <th>Score / {resolvedMax}</th>
                 <th>Grade</th>
                 <th>Remark</th>
                 <th>Status</th>
@@ -125,7 +135,7 @@ export default function GradePage() {
                     </td>
                     <td>
                       <div className="score-cell">
-                        <ScoreBar score={r.score} />
+                        <ScoreBar score={r.score} maxScore={resolvedMax} />
                         <span className="score-num mono">{r.score}</span>
                       </div>
                     </td>
@@ -234,11 +244,12 @@ export default function GradePage() {
   );
 }
 
-function ScoreBar({ score }) {
-  const color = score >= 75 ? 'var(--green)' : score >= 50 ? 'var(--yellow)' : 'var(--red)';
+function ScoreBar({ score, maxScore }) {
+  const pct = maxScore > 0 ? (score / maxScore) * 100 : 0;
+  const color = pct >= 75 ? 'var(--green)' : pct >= 50 ? 'var(--yellow)' : 'var(--red)';
   return (
     <div style={{ width: 60, height: 5, background: 'var(--bg-3)', borderRadius: 99, overflow: 'hidden' }}>
-      <div style={{ height: '100%', width: `${Math.min(score, 100)}%`, background: color, borderRadius: 99, transition: 'width 0.4s ease' }} />
+      <div style={{ height: '100%', width: `${Math.min(pct, 100)}%`, background: color, borderRadius: 99, transition: 'width 0.4s ease' }} />
     </div>
   );
 }
