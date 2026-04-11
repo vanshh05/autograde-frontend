@@ -6,6 +6,7 @@ import AuthPage from './pages/AuthPage';
 import DashboardPage from './pages/DashboardPage';
 import CoursesPage from './pages/CoursesPage';
 import CourseDetailPage from './pages/CourseDetailPage';
+import CreateAssignmentPage from './pages/CreateAssignmentPage';
 import GradesIndexPage from './pages/GradesIndexPage';
 import GradePage from './pages/GradePage';
 import './index.css';
@@ -32,13 +33,14 @@ function Public({ children }) {
 function AppRoutes() {
   return (
     <Routes>
-      <Route path="/"                              element={<Public><AuthPage/></Public>}/>
-      <Route path="/dashboard"                     element={<Protected><DashboardPage/></Protected>}/>
-      <Route path="/courses"                       element={<Protected><CoursesPage/></Protected>}/>
-      <Route path="/courses/:courseId"             element={<Protected><CourseDetailPage/></Protected>}/>
-      <Route path="/grades"                        element={<Protected><GradesIndexPage/></Protected>}/>
+      <Route path="/"                               element={<Public><AuthPage/></Public>}/>
+      <Route path="/dashboard"                      element={<Protected><DashboardPage/></Protected>}/>
+      <Route path="/courses"                        element={<Protected><CoursesPage/></Protected>}/>
+      <Route path="/courses/:courseId"              element={<Protected><CourseDetailPage/></Protected>}/>
+      <Route path="/create"                         element={<Protected><CreateAssignmentPage/></Protected>}/>
+      <Route path="/grades"                         element={<Protected><GradesIndexPage/></Protected>}/>
       <Route path="/grades/:courseId/:courseWorkId" element={<Protected><GradePage/></Protected>}/>
-      <Route path="*"                              element={<Navigate to="/" replace/>}/>
+      <Route path="*"                               element={<Navigate to="/" replace/>}/>
     </Routes>
   );
 }
@@ -48,16 +50,9 @@ export default function App() {
     <BrowserRouter>
       <AuthProvider>
         <AppRoutes/>
-        <Toaster
-          position="bottom-right"
-          toastOptions={{
-            style: {
-              background:'var(--bg-2)', color:'var(--text)',
-              border:'1px solid var(--border)',
-              fontFamily:'DM Sans,sans-serif', fontSize:'13px',
-            },
-          }}
-        />
+        <Toaster position="bottom-right" toastOptions={{
+          style:{ background:'var(--bg-2)', color:'var(--text)', border:'1px solid var(--border)', fontFamily:'DM Sans,sans-serif', fontSize:'13px' }
+        }}/>
       </AuthProvider>
     </BrowserRouter>
   );

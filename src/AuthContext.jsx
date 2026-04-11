@@ -10,38 +10,23 @@ export function AuthProvider({ children }) {
   const loadUser = useCallback(async () => {
     const token = localStorage.getItem('authToken');
     if (!token) { setLoading(false); return; }
-    try {
-      const data = await getUser();
-      setUser(data);
-    } catch {
-      localStorage.removeItem('authToken');
-    } finally {
-      setLoading(false);
-    }
+    try { setUser(await getUser()); }
+    catch { localStorage.removeItem('authToken'); }
+    finally { setLoading(false); }
   }, []);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const accessToken = params.get('accessToken');
-    if (accessToken) {
-      localStorage.setItem('authToken', accessToken);
-      window.history.replaceState({}, '', window.location.pathname);
-    }
+    const token = params.get('accessToken');
+    if (token) { localStorage.setItem('authToken', token); window.history.replaceState({}, '', window.location.pathname); }
     loadUser();
   }, [loadUser]);
 
-  const loginSuccess = (token, userData) => {
-    localStorage.setItem('authToken', token);
-    setUser(userData);
-  };
-
-  const logout = () => {
-    localStorage.removeItem('authToken');
-    setUser(null);
-  };
+  const loginSuccess = (token, userData) => { localStorage.setItem('authToken', token); setUser(userData); };
+  const logout = () => { localStorage.removeItem('authToken'); setUser(null); };
 
   return (
-    <AuthContext.Provider value={{ user, loading, loginSuccess, logout, reload: loadUser }}>
+    <AuthContext.Provider value={{ user, loading, loginSuccess, logout }}>
       {children}
     </AuthContext.Provider>
   );
