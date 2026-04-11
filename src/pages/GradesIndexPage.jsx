@@ -50,11 +50,11 @@ export default function GradesIndexPage() {
           {/* Created */}
           <div className="gi-col">
             <div className="gi-ch teal">
-              <Send size={12}/> AutoGrade.ai Assignments
+              <Send size={12}/> Graded via AutoGrade.ai
               <span className="badge badge-teal" style={{marginLeft:'auto'}}>{created.length}</span>
             </div>
             {created.length===0 ? (
-              <div className="gi-empty">No assignments created from AutoGrade.ai.</div>
+              <div className="gi-empty">No graded assignments found.</div>
             ) : created.map(cw=>(
               <Link key={cw.id} to={`/grades/${selected}/${cw.id}`} className="card gi-row">
                 <div>
@@ -72,11 +72,11 @@ export default function GradesIndexPage() {
           {/* Not created */}
           <div className="gi-col">
             <div className="gi-ch purple">
-              <BarChart2 size={12}/> Imported from Classroom
+              <BarChart2 size={12}/> Not Yet Graded
               <span className="badge badge-purple" style={{marginLeft:'auto'}}>{notCreated.length}</span>
             </div>
             {notCreated.length===0 ? (
-              <div className="gi-empty">No imported assignments.</div>
+              <div className="gi-empty">No ungraded assignments found.</div>
             ) : notCreated.map(cw=>(
               <Link key={cw.id} to={`/grades/${selected}/${cw.id}`} className="card gi-row">
                 <div>

@@ -1,25 +1,25 @@
 import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getCourses, createCoursework } from '../api';
-import { PlusSquare, Upload, CheckCircle, ArrowRight, Info } from 'lucide-react';
+import { PlusSquare, Upload, CheckCircle, ArrowRight, Info, Clock } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export default function CreateAssignmentPage() {
   const [courses, setCourses] = useState([]);
   const [loadingCourses, setLoadingCourses] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [done, setDone] = useState(null); // { courseworkId, driveId, courseId }
+  const [done, setDone] = useState(null);
   const fileRef = useRef();
   const nav = useNavigate();
 
   const [form, setForm] = useState({
     courseId: '', title: '', description: '',
-    maxPoints: '', dueDate: '', file: null,
+    maxPoints: '', dueDate: '', dueTime: '23:59', file: null,
   });
 
   useEffect(() => {
     getCourses()
-      .then(d => { setCourses(d.courses||[]); })
+      .then(d => setCourses(d.courses || []))
       .catch(e => toast.error(e.message))
       .finally(() => setLoadingCourses(false));
   }, []);
@@ -31,6 +31,7 @@ export default function CreateAssignmentPage() {
     if (!form.courseId) return toast.error('Select a course');
     if (!form.title.trim()) return toast.error('Title is required');
     if (!form.file) return toast.error('Question paper file is required');
+    if (form.dueDate && !form.dueTime) return toast.error('Please set a due time');
 
     setSubmitting(true);
     try {
@@ -39,16 +40,25 @@ export default function CreateAssignmentPage() {
       fd.append('title', form.title);
       if (form.description) fd.append('description', form.description);
       if (form.maxPoints)   fd.append('maxPoints', String(form.maxPoints));
-      if (form.dueDate)     fd.append('dueDate', form.dueDate);
+      // Send dueDate and dueTime as separate fields — backend now handles them independently
+      if (form.dueDate) {
+        fd.append('dueDate', form.dueDate);           // YYYY-MM-DD
+        fd.append('dueTime', form.dueTime || '23:59'); // HH:mm
+      }
 
       const res = await createCoursework(form.courseId, fd);
-      setDone({ ...res, courseId: form.courseId });
+      setDone({ ...res, courseId: form.courseId, dueDate: form.dueDate, dueTime: form.dueTime });
       toast.success('Assignment created and published to Classroom!');
     } catch (e) {
       toast.error(e.message);
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const resetForm = () => {
+    setDone(null);
+    setForm({ courseId: '', title: '', description: '', maxPoints: '', dueDate: '', dueTime: '23:59', file: null });
   };
 
   if (done) {
@@ -58,15 +68,21 @@ export default function CreateAssignmentPage() {
           <div className="success-icon"><CheckCircle size={36} style={{color:'var(--green)'}}/></div>
           <h2 style={{fontFamily:"'Syne',sans-serif",fontSize:22,fontWeight:800,marginBottom:8}}>Assignment Published!</h2>
           <p style={{color:'var(--text-2)',fontSize:14,marginBottom:24,lineHeight:1.7}}>
-            Your assignment has been created in Google Classroom and registered in our system.
-            Students can now submit their work, and you can start AI grading once they do.
+            Your assignment has been created in Google Classroom. Students can now submit their work,
+            and you can start AI grading once submissions come in.
           </p>
           <div className="success-ids">
             <div className="sid-row"><span className="sid-label">Coursework ID</span><span className="mono sid-val">{done.courseworkId}</span></div>
             <div className="sid-row"><span className="sid-label">Drive File ID</span><span className="mono sid-val">{done.driveId}</span></div>
+            {done.dueDate && (
+              <div className="sid-row">
+                <span className="sid-label">Deadline</span>
+                <span className="sid-val">{done.dueDate} at {done.dueTime}</span>
+              </div>
+            )}
           </div>
           <div style={{display:'flex',gap:10,marginTop:24,flexWrap:'wrap'}}>
-            <button className="btn btn-secondary" onClick={()=>{setDone(null);setForm({courseId:'',title:'',description:'',maxPoints:'',dueDate:'',file:null});}}>
+            <button className="btn btn-secondary" onClick={resetForm}>
               <PlusSquare size={13}/> Create Another
             </button>
             <button className="btn btn-primary" onClick={()=>nav(`/courses/${done.courseId}`)}>
@@ -98,11 +114,12 @@ export default function CreateAssignmentPage() {
 
       <div className="info-banner fade-up">
         <Info size={14} style={{flexShrink:0,marginTop:1}}/>
-        <span>Only assignments created here will have the <strong>Sync to Classroom</strong> option after grading. Imported assignments from Classroom cannot be synced back.</span>
+        <span>Assignments created here will appear under <strong>Graded via AutoGrade.ai</strong> on the course page, and support the <strong>Sync to Classroom</strong> feature after grading.</span>
       </div>
 
       <form onSubmit={handleSubmit} className="create-form fade-up">
-        {/* Course select */}
+
+        {/* Course */}
         <div className="input-group">
           <label className="label">Course *</label>
           <select className="input" value={form.courseId} onChange={e=>set('courseId',e.target.value)} disabled={loadingCourses}>
@@ -119,20 +136,49 @@ export default function CreateAssignmentPage() {
 
         {/* Description */}
         <div className="input-group">
-          <label className="label">Description <span style={{fontWeight:400,textTransform:'none',color:'var(--text-3)'}}>optional</span></label>
+          <label className="label">Description <span className="opt">optional</span></label>
           <textarea className="input" rows={3} placeholder="Instructions or notes for students…" value={form.description} onChange={e=>set('description',e.target.value)}/>
         </div>
 
-        {/* Max points + due date */}
-        <div className="two-col">
-          <div className="input-group">
-            <label className="label">Max Points <span style={{fontWeight:400,textTransform:'none',color:'var(--text-3)'}}>optional</span></label>
-            <input className="input" type="number" min={1} placeholder="100" value={form.maxPoints} onChange={e=>set('maxPoints',e.target.value)}/>
+        {/* Max points */}
+        <div className="input-group">
+          <label className="label">Max Points <span className="opt">optional</span></label>
+          <input className="input" type="number" min={1} placeholder="100" value={form.maxPoints} onChange={e=>set('maxPoints',e.target.value)}/>
+        </div>
+
+        {/* Due date + due time */}
+        <div className="deadline-section">
+          <div className="deadline-label">
+            <Clock size={12}/> Deadline <span className="opt">optional</span>
           </div>
-          <div className="input-group">
-            <label className="label">Due Date <span style={{fontWeight:400,textTransform:'none',color:'var(--text-3)'}}>optional</span></label>
-            <input className="input" type="date" value={form.dueDate} onChange={e=>set('dueDate',e.target.value)}/>
+          <div className="deadline-row">
+            <div className="input-group" style={{flex:1}}>
+              <label className="label">Date</label>
+              <input
+                className="input"
+                type="date"
+                value={form.dueDate}
+                onChange={e=>set('dueDate',e.target.value)}
+                min={new Date().toISOString().split('T')[0]}
+              />
+            </div>
+            <div className="input-group" style={{flex:1}}>
+              <label className="label">Time <span className="opt">defaults to 23:59</span></label>
+              <input
+                className="input"
+                type="time"
+                value={form.dueTime}
+                onChange={e=>set('dueTime',e.target.value)}
+                disabled={!form.dueDate}
+                style={{opacity:form.dueDate?1:0.4,cursor:form.dueDate?'auto':'not-allowed'}}
+              />
+            </div>
           </div>
+          {form.dueDate && (
+            <div className="deadline-preview">
+              <CheckCircle size={11}/> Deadline set: <strong>{form.dueDate}</strong> at <strong>{form.dueTime || '23:59'}</strong>
+            </div>
+          )}
         </div>
 
         {/* File upload */}
@@ -141,17 +187,17 @@ export default function CreateAssignmentPage() {
           <div className="file-drop" onClick={()=>fileRef.current.click()}>
             <input ref={fileRef} type="file" accept=".pdf,.doc,.docx,.txt,.png,.jpg" style={{display:'none'}} onChange={e=>set('file',e.target.files[0])}/>
             <Upload size={20} style={{color:form.file?'var(--accent-2)':'var(--text-3)'}}/>
-            <div>
+            <div style={{flex:1}}>
               <div style={{fontSize:14,fontWeight:500,color:form.file?'var(--text)':'var(--text-2)'}}>
                 {form.file ? form.file.name : 'Click to upload question paper'}
               </div>
               <div style={{fontSize:11,color:'var(--text-3)',marginTop:3}}>
-                {form.file ? `${(form.file.size/1024).toFixed(1)} KB` : 'PDF, DOC, DOCX, TXT, PNG, JPG'}
+                {form.file ? `${(form.file.size/1024).toFixed(1)} KB · ${form.file.type||'file'}` : 'PDF, DOC, DOCX, TXT, PNG, JPG'}
               </div>
             </div>
-            {form.file && <CheckCircle size={16} style={{color:'var(--green)',marginLeft:'auto'}}/>}
+            {form.file && <CheckCircle size={16} style={{color:'var(--green)',flexShrink:0}}/>}
           </div>
-          <p className="file-note">The file will be uploaded to Google Drive and attached to the Classroom assignment. Students will see it as a view-only material.</p>
+          <p className="file-note">The file is uploaded to Google Drive and attached to the assignment as view-only material for students.</p>
         </div>
 
         <div style={{display:'flex',justifyContent:'flex-end',paddingTop:8}}>
@@ -164,7 +210,11 @@ export default function CreateAssignmentPage() {
       <style>{`
         .info-banner{display:flex;align-items:flex-start;gap:10px;padding:13px 15px;background:var(--accent-glow);border:1px solid rgba(124,106,247,0.2);border-radius:var(--radius-sm);font-size:13px;color:var(--text-2);line-height:1.6;margin-bottom:24px;}
         .create-form{display:flex;flex-direction:column;gap:18px;}
-        .two-col{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+        .opt{font-weight:400;text-transform:none;color:var(--text-3);font-size:10px;margin-left:4px;}
+        .deadline-section{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:16px;display:flex;flex-direction:column;gap:12px;}
+        .deadline-label{display:flex;align-items:center;gap:7px;font-size:12px;font-weight:700;color:var(--text-2);text-transform:uppercase;letter-spacing:0.05em;}
+        .deadline-row{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+        .deadline-preview{display:flex;align-items:center;gap:7px;padding:8px 12px;background:var(--teal-bg);border:1px solid rgba(45,212,191,0.2);border-radius:var(--radius-sm);font-size:12px;color:var(--teal);}
         .file-drop{display:flex;align-items:center;gap:14px;padding:18px;background:var(--bg-2);border:1.5px dashed var(--border);border-radius:var(--radius-sm);cursor:pointer;transition:border-color 0.18s;}
         .file-drop:hover{border-color:var(--accent);}
         .file-note{font-size:11px;color:var(--text-3);line-height:1.6;margin-top:6px;}

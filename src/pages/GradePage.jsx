@@ -70,7 +70,7 @@ export default function GradePage() {
       {!loading && !isCreated && results.length>0 && (
         <div className="no-sync-banner fade-up">
           <Info size={13} style={{flexShrink:0}}/>
-          <span>Sync to Classroom is only available for assignments created through AutoGrade.ai. This assignment was imported from Classroom directly.</span>
+          <span>This assignment has not been graded via AutoGrade.ai yet. Grade it first from the Courses page — sync will be available once grading completes.</span>
         </div>
       )}
 

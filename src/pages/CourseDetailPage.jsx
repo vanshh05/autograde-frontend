@@ -121,16 +121,16 @@ export default function CourseDetailPage() {
         <div className="leg-item">
           <div className="leg-dot" style={{background:'var(--teal)'}}/>
           <div>
-            <div className="leg-title">Created by AutoGrade.ai</div>
-            <div className="leg-sub">Assignments you published from this platform. Supports AI grading + Sync to Classroom.</div>
+            <div className="leg-title">Graded via AutoGrade.ai</div>
+            <div className="leg-sub">Assignments that have been graded through AutoGrade.ai at least once. These support the Sync to Classroom feature.</div>
           </div>
         </div>
         <div className="leg-div"/>
         <div className="leg-item">
           <div className="leg-dot" style={{background:'var(--accent-2)'}}/>
           <div>
-            <div className="leg-title">Imported from Classroom</div>
-            <div className="leg-sub">Assignments created directly in Google Classroom. AI grading only — sync not available.</div>
+            <div className="leg-title">Not Yet Graded</div>
+            <div className="leg-sub">Assignments from Classroom that have not been graded via AutoGrade.ai yet. Grade them first to unlock sync.</div>
           </div>
         </div>
       </div>
@@ -147,7 +147,7 @@ export default function CourseDetailPage() {
             <div className="col-header teal">
               <div className="col-h-left">
                 <div className="col-dot" style={{background:'var(--teal)'}}/>
-                <span className="col-title">Created by AutoGrade.ai</span>
+                <span className="col-title">Graded via AutoGrade.ai</span>
                 <span className="badge badge-teal">{loadingC?'…':created.length}</span>
               </div>
               <span className="badge badge-teal" style={{fontSize:10}}>Sync enabled</span>
@@ -158,7 +158,7 @@ export default function CourseDetailPage() {
             ) : created.length === 0 ? (
               <div className="col-empty">
                 <PlusSquare size={28} style={{opacity:0.2}}/>
-                <p>No assignments created from AutoGrade.ai yet.</p>
+                <p>No graded assignments yet for this course.</p>
                 <Link to="/create" className="btn btn-teal btn-sm" style={{marginTop:4}}><PlusSquare size={12}/> Create one</Link>
               </div>
             ) : (
@@ -174,12 +174,12 @@ export default function CourseDetailPage() {
             )}
           </div>
 
-          {/* ── RIGHT: Imported from Classroom ─────────────────────────────── */}
+          {/* ── RIGHT: Not Yet Graded ─────────────────────────────── */}
           <div className="col">
             <div className="col-header purple">
               <div className="col-h-left">
                 <div className="col-dot" style={{background:'var(--accent-2)'}}/>
-                <span className="col-title">Imported from Classroom</span>
+                <span className="col-title">Not Yet Graded</span>
                 <span className="badge badge-purple">{loadingI?'…':imported.length}</span>
               </div>
               <div style={{display:'flex',alignItems:'center',gap:5,fontSize:10,color:'var(--text-3)'}}>
@@ -192,7 +192,7 @@ export default function CourseDetailPage() {
             ) : imported.length === 0 ? (
               <div className="col-empty">
                 <BarChart2 size={28} style={{opacity:0.2}}/>
-                <p>All assignments are registered — or none exist in Classroom yet.</p>
+                <p>No ungraded assignments found.</p>
               </div>
             ) : (
               imported.map((cw, i) => (
@@ -345,7 +345,7 @@ function CwCard({ cw, isCreated, courseId, expanded, onToggle, job, form, onForm
               ) : (
                 <div className="no-sync">
                   <Info size={12} style={{flexShrink:0}}/>
-                  <span>Sync to Classroom is only available for assignments created through AutoGrade.ai. <Link to="/create" style={{color:'var(--accent-2)'}}>Create a new assignment →</Link></span>
+                  <span>This assignment hasn't been graded via AutoGrade.ai yet. Start a grading job above — once complete, sync will be available.</span>
                 </div>
               )}
 
