@@ -16,20 +16,20 @@ async function request(path, options = {}) {
   return data;
 }
 
-// Auth
+// ── Auth ─────────────────────────────────────────────────────────────────────
 export const login = (email, fullName) =>
   request('/api/auth/login', { method: 'POST', body: JSON.stringify({ email, fullName }) });
 
 export const signup = (email, fullName) =>
   request('/api/auth/signup', { method: 'POST', body: JSON.stringify({ email, fullName }) });
 
-export const googleAuthUrl = () => `${BASE}/api/auth/google`;
+export const googleAuthUrl  = () => `${BASE}/api/auth/google`;
 export const googleSignupUrl = () => `${BASE}/api/auth/google/signup`;
 
-// User
+// ── User ──────────────────────────────────────────────────────────────────────
 export const getUser = () => request('/api/user');
 
-// Classroom
+// ── Classroom ─────────────────────────────────────────────────────────────────
 export const getCourses = (pageSize = 50) =>
   request(`/api/classroom/courses?pageSize=${pageSize}`);
 
@@ -50,3 +50,9 @@ export const getJobStatus = (courseId, courseWorkId, jobId) =>
 
 export const getDashboard = (courseId, courseWorkId) =>
   request(`/api/classroom/dashboard/${courseId}/${courseWorkId}`);
+
+// NEW: Push AI grades back to Google Classroom
+export const syncMarksToClassroom = (courseId, courseWorkId) =>
+  request(`/api/classroom/coursework/${courseId}/${courseWorkId}/submissions/marks`, {
+    method: 'PATCH',
+  });

@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { login, signup, googleAuthUrl, googleSignupUrl } from '../api';
+import { login, signup, googleAuthUrl } from '../api';
 import { useAuth } from '../AuthContext';
 import toast from 'react-hot-toast';
 
 export default function AuthPage() {
-  const [mode, setMode] = useState('login'); // login | signup
+  const [mode, setMode] = useState('login');
   const [email, setEmail] = useState('');
   const [fullName, setFullName] = useState('');
   const [loading, setLoading] = useState(false);
@@ -33,259 +33,92 @@ export default function AuthPage() {
   return (
     <div className="auth-shell">
       <div className="auth-bg">
-        <div className="auth-orb auth-orb-1" />
-        <div className="auth-orb auth-orb-2" />
-        <div className="auth-grid" />
+        <div className="orb orb-1" />
+        <div className="orb orb-2" />
+        <div className="grid-overlay" />
       </div>
 
+      {/* Left panel */}
       <div className="auth-left fade-up">
-        <div className="auth-brand">
-          <span className="auth-logo-icon">⚡</span>
-          <span className="auth-logo-text">AutoGrade<span style={{color:'var(--accent-2)'}}>.ai</span></span>
+        <div className="brand">
+          <span className="brand-icon">⚡</span>
+          <span className="brand-name">AutoGrade<span style={{color:'var(--accent-2)'}}>.</span>ai</span>
         </div>
-
-        <div className="auth-headline">
-          <h1>AI-powered grading<br />for Google Classroom</h1>
-          <p>Grade entire coursework submissions in minutes with Gemini AI. Smart rubric matching, auto feedback, instant results.</p>
-        </div>
-
-        <div className="auth-features">
-          {[
-            { icon: '🎯', label: 'Rubric-aware grading' },
-            { icon: '⚡', label: 'Background job queue' },
-            { icon: '📊', label: 'Live progress dashboard' },
-            { icon: '🔒', label: 'Google Classroom OAuth' },
-          ].map(f => (
-            <div className="auth-feature" key={f.label}>
-              <span>{f.icon}</span>
-              <span>{f.label}</span>
+        <h1 className="auth-headline">AI grading for<br/>Google Classroom</h1>
+        <p className="auth-tagline">Grade entire coursework submissions in minutes. Rubric-aware, feedback-rich, synced back to Classroom.</p>
+        <div className="feature-list">
+          {['Gemini AI grading engine','Background job queue','Live progress tracking','Sync marks to Classroom','OCR for handwritten work'].map(f => (
+            <div key={f} className="feature-item">
+              <span className="feature-dot">✦</span>
+              <span>{f}</span>
             </div>
           ))}
         </div>
       </div>
 
-      <div className="auth-right fade-up" style={{ animationDelay: '0.1s' }}>
+      {/* Right panel */}
+      <div className="auth-right fade-up" style={{animationDelay:'0.12s'}}>
         <div className="auth-card">
           <div className="auth-tabs">
-            <button className={`auth-tab ${mode === 'login' ? 'active' : ''}`} onClick={() => setMode('login')}>Sign in</button>
-            <button className={`auth-tab ${mode === 'signup' ? 'active' : ''}`} onClick={() => setMode('signup')}>Create account</button>
+            <button className={`auth-tab ${mode==='login'?'active':''}`} onClick={()=>setMode('login')}>Sign in</button>
+            <button className={`auth-tab ${mode==='signup'?'active':''}`} onClick={()=>setMode('signup')}>Sign up</button>
           </div>
 
           <form onSubmit={handleSubmit} className="auth-form">
             {mode === 'signup' && (
-              <div className="input-group" style={{ animationDelay: '0.05s' }}>
+              <div className="input-group fade-in">
                 <label className="label">Full Name</label>
-                <input
-                  className="input"
-                  placeholder="Your full name"
-                  value={fullName}
-                  onChange={e => setFullName(e.target.value)}
-                />
+                <input className="input" placeholder="Your full name" value={fullName} onChange={e=>setFullName(e.target.value)} />
               </div>
             )}
             <div className="input-group">
               <label className="label">Email</label>
-              <input
-                className="input"
-                type="email"
-                placeholder="teacher@school.edu"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-              />
+              <input className="input" type="email" placeholder="teacher@school.edu" value={email} onChange={e=>setEmail(e.target.value)} />
             </div>
-
-            <button className="btn btn-primary btn-lg" style={{ width: '100%', justifyContent: 'center' }} disabled={loading}>
-              {loading ? <span className="spinner" /> : (mode === 'login' ? 'Sign in' : 'Create account')}
+            <button className="btn btn-primary btn-lg" style={{width:'100%',justifyContent:'center'}} disabled={loading}>
+              {loading ? <span className="spinner"/> : (mode==='login' ? 'Sign in' : 'Create account')}
             </button>
           </form>
 
-          <div className="auth-divider"><span>or continue with</span></div>
+          <div className="or-divider"><span>or</span></div>
 
-          <div className="auth-google-btns">
-            <a href={googleAuthUrl()} className="btn btn-secondary" style={{ flex: 1, justifyContent: 'center' }}>
-              <GoogleIcon />
-              Google {mode === 'login' ? 'Sign in' : 'Sign up'}
-            </a>
-          </div>
+          <a href={googleAuthUrl()} className="btn btn-secondary btn-lg" style={{width:'100%',justifyContent:'center'}}>
+            <GoogleIcon/> Continue with Google
+          </a>
 
           <p className="auth-note">
-            By continuing, you grant read-only access to your Google Classroom courses and Drive files.
+            Google login grants read-only access to Classroom and Drive for grading purposes.
           </p>
         </div>
       </div>
 
       <style>{`
-        .auth-shell {
-          min-height: 100vh;
-          display: flex;
-          align-items: stretch;
-          position: relative;
-          overflow: hidden;
-        }
-        .auth-bg {
-          position: fixed;
-          inset: 0;
-          pointer-events: none;
-          z-index: 0;
-        }
-        .auth-orb {
-          position: absolute;
-          border-radius: 50%;
-          filter: blur(80px);
-        }
-        .auth-orb-1 {
-          width: 500px; height: 500px;
-          background: radial-gradient(circle, rgba(124,106,247,0.15) 0%, transparent 70%);
-          top: -100px; left: -100px;
-        }
-        .auth-orb-2 {
-          width: 400px; height: 400px;
-          background: radial-gradient(circle, rgba(167,139,250,0.1) 0%, transparent 70%);
-          bottom: -50px; right: 300px;
-        }
-        .auth-grid {
-          position: absolute;
-          inset: 0;
-          background-image: 
-            linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
-          background-size: 60px 60px;
-        }
-        .auth-left {
-          flex: 1;
-          display: flex;
-          flex-direction: column;
-          justify-content: center;
-          padding: 60px;
-          position: relative;
-          z-index: 1;
-        }
-        .auth-brand {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          margin-bottom: 60px;
-        }
-        .auth-logo-icon {
-          font-size: 28px;
-          background: var(--accent);
-          width: 44px; height: 44px;
-          display: flex; align-items: center; justify-content: center;
-          border-radius: 10px;
-        }
-        .auth-logo-text {
-          font-family: 'Syne', sans-serif;
-          font-size: 22px;
-          font-weight: 700;
-        }
-        .auth-headline h1 {
-          font-size: clamp(32px, 4vw, 48px);
-          font-weight: 800;
-          margin-bottom: 16px;
-          line-height: 1.15;
-        }
-        .auth-headline p {
-          color: var(--text-2);
-          font-size: 16px;
-          max-width: 400px;
-          line-height: 1.7;
-          margin-bottom: 48px;
-        }
-        .auth-features {
-          display: flex;
-          flex-direction: column;
-          gap: 14px;
-        }
-        .auth-feature {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          color: var(--text-2);
-          font-size: 14px;
-        }
-        .auth-right {
-          width: 460px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          padding: 40px;
-          position: relative;
-          z-index: 1;
-          border-left: 1px solid var(--border);
-          background: rgba(10,10,15,0.6);
-          backdrop-filter: blur(20px);
-        }
-        .auth-card {
-          width: 100%;
-          max-width: 380px;
-        }
-        .auth-tabs {
-          display: flex;
-          gap: 4px;
-          background: var(--bg-2);
-          border-radius: var(--radius-sm);
-          padding: 4px;
-          margin-bottom: 32px;
-        }
-        .auth-tab {
-          flex: 1;
-          padding: 9px;
-          border: none;
-          border-radius: calc(var(--radius-sm) - 2px);
-          font-family: 'DM Sans', sans-serif;
-          font-size: 14px;
-          font-weight: 500;
-          cursor: pointer;
-          background: transparent;
-          color: var(--text-2);
-          transition: all 0.18s;
-        }
-        .auth-tab.active {
-          background: var(--bg-3);
-          color: var(--text);
-        }
-        .auth-form {
-          display: flex;
-          flex-direction: column;
-          gap: 16px;
-          margin-bottom: 24px;
-        }
-        .auth-divider {
-          position: relative;
-          text-align: center;
-          margin: 24px 0;
-        }
-        .auth-divider::before {
-          content: '';
-          position: absolute;
-          top: 50%;
-          left: 0;
-          right: 0;
-          height: 1px;
-          background: var(--border);
-        }
-        .auth-divider span {
-          position: relative;
-          background: var(--bg);
-          padding: 0 12px;
-          font-size: 12px;
-          color: var(--text-3);
-        }
-        .auth-google-btns {
-          display: flex;
-          gap: 10px;
-        }
-        .auth-note {
-          font-size: 12px;
-          color: var(--text-3);
-          text-align: center;
-          margin-top: 20px;
-          line-height: 1.6;
-        }
-        @media (max-width: 768px) {
-          .auth-left { display: none; }
-          .auth-right { width: 100%; border-left: none; }
-        }
+        .auth-shell { min-height:100vh; display:flex; position:relative; overflow:hidden; }
+        .auth-bg { position:fixed; inset:0; pointer-events:none; z-index:0; }
+        .orb { position:absolute; border-radius:50%; filter:blur(80px); }
+        .orb-1 { width:560px; height:560px; background:radial-gradient(circle,rgba(124,106,247,0.14) 0%,transparent 70%); top:-160px; left:-120px; }
+        .orb-2 { width:400px; height:400px; background:radial-gradient(circle,rgba(167,139,250,0.08) 0%,transparent 70%); bottom:-80px; right:360px; }
+        .grid-overlay { position:absolute; inset:0; background-image:linear-gradient(rgba(255,255,255,0.018) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.018) 1px,transparent 1px); background-size:64px 64px; }
+        .auth-left { flex:1; display:flex; flex-direction:column; justify-content:center; padding:64px; position:relative; z-index:1; }
+        .brand { display:flex; align-items:center; gap:10px; margin-bottom:56px; }
+        .brand-icon { font-size:22px; background:var(--accent); width:40px; height:40px; border-radius:9px; display:flex; align-items:center; justify-content:center; }
+        .brand-name { font-family:'Syne',sans-serif; font-size:20px; font-weight:700; }
+        .auth-headline { font-size:clamp(34px,4vw,52px); font-weight:800; margin-bottom:18px; line-height:1.12; }
+        .auth-tagline { color:var(--text-2); font-size:15px; max-width:380px; line-height:1.7; margin-bottom:48px; }
+        .feature-list { display:flex; flex-direction:column; gap:12px; }
+        .feature-item { display:flex; align-items:center; gap:12px; color:var(--text-2); font-size:14px; }
+        .feature-dot { color:var(--accent-2); font-size:10px; }
+        .auth-right { width:460px; flex-shrink:0; display:flex; align-items:center; justify-content:center; padding:40px; position:relative; z-index:1; border-left:1px solid var(--border); background:rgba(10,10,15,0.7); backdrop-filter:blur(24px); }
+        .auth-card { width:100%; max-width:360px; }
+        .auth-tabs { display:flex; gap:3px; background:var(--bg-2); border-radius:var(--radius-sm); padding:3px; margin-bottom:28px; }
+        .auth-tab { flex:1; padding:8px; border:none; border-radius:calc(var(--radius-sm) - 1px); font-family:'DM Sans',sans-serif; font-size:14px; font-weight:500; cursor:pointer; background:transparent; color:var(--text-3); transition:all 0.15s; }
+        .auth-tab.active { background:var(--bg-3); color:var(--text); }
+        .auth-form { display:flex; flex-direction:column; gap:14px; margin-bottom:20px; }
+        .or-divider { position:relative; text-align:center; margin:20px 0; }
+        .or-divider::before { content:''; position:absolute; top:50%; left:0; right:0; height:1px; background:var(--border); }
+        .or-divider span { position:relative; background:var(--bg); padding:0 12px; font-size:12px; color:var(--text-3); }
+        .auth-note { font-size:11px; color:var(--text-3); text-align:center; margin-top:18px; line-height:1.6; }
+        @media(max-width:768px){ .auth-left{display:none;} .auth-right{width:100%;border-left:none;} }
       `}</style>
     </div>
   );

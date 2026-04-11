@@ -21,7 +21,6 @@ export function AuthProvider({ children }) {
   }, []);
 
   useEffect(() => {
-    // Handle Google OAuth redirect token
     const params = new URLSearchParams(window.location.search);
     const accessToken = params.get('accessToken');
     if (accessToken) {
