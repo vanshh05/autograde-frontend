@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
 import { Check, Sparkles, Zap, BarChart3, Lock } from 'lucide-react';
 import { login, signup, googleAuthUrl } from '../api';
 import { useAuth } from '../AuthContext';
@@ -36,125 +35,72 @@ export default function AuthPage() {
   };
 
   return (
-    <div style={{minHeight:'100vh',background:'#020817',color:'#f1f5f9',overflow:'hidden',position:'relative'}}>
-      {/* Background */}
-      <div style={{position:'fixed',inset:0,background:'linear-gradient(to bottom, #020817, #0f172a, #020817)',pointerEvents:'none'}}/>
-      <motion.div
-        style={{position:'fixed',top:'-50%',left:'-50%',width:'100%',height:'100%',background:'radial-gradient(circle,rgba(16,185,129,0.05) 0%,transparent 70%)',borderRadius:'50%',filter:'blur(60px)',pointerEvents:'none'}}
-        animate={{x:[0,50,0],y:[0,30,0],scale:[1,1.05,1]}}
-        transition={{duration:25,repeat:Infinity,ease:'easeInOut'}}
-      />
+    <div className="auth-page">
+      <div className="auth-bg-base" />
+      <div className="auth-blob-1" />
 
-      <div style={{position:'relative',zIndex:1}}>
+      <div className="auth-inner">
         {/* Header */}
-        <motion.header
-          style={{padding:'24px 48px',display:'flex',alignItems:'center',gap:12}}
-          initial={{opacity:0,y:-20}} animate={{opacity:1,y:0}} transition={{duration:0.6}}
-        >
-          <div style={{width:40,height:40,borderRadius:12,background:'rgba(16,185,129,0.1)',border:'1px solid rgba(16,185,129,0.2)',display:'flex',alignItems:'center',justifyContent:'center'}}>
-            <Check size={22} color="#34d399" strokeWidth={3}/>
-          </div>
-          <span style={{fontSize:20,fontWeight:600,letterSpacing:'-0.02em'}}>
-            AutoGrade<span style={{color:'#475569',fontWeight:400}}>.ai</span>
-          </span>
-        </motion.header>
+        <header className="auth-header fade-up">
+          <div className="auth-logo-icon"><Check size={22} color="#34d399" strokeWidth={3}/></div>
+          <span className="auth-logo-text">AutoGrade<span style={{color:'#475569',fontWeight:400}}>.ai</span></span>
+        </header>
 
         {/* Grid */}
-        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:48,padding:'48px 48px',maxWidth:1280,margin:'0 auto',alignItems:'center',minHeight:'calc(100vh - 88px)'}}>
-
-          {/* Left — Hero */}
-          <motion.div
-            style={{display:'flex',flexDirection:'column',gap:32}}
-            initial={{opacity:0,x:-50}} animate={{opacity:1,x:0}} transition={{duration:0.8,delay:0.2}}
-          >
-            <div>
-              <motion.h1
-                style={{fontSize:'clamp(40px,5vw,72px)',fontWeight:600,letterSpacing:'-0.03em',lineHeight:1.1,marginBottom:20}}
-                initial={{opacity:0,y:20}} animate={{opacity:1,y:0}} transition={{duration:0.8,delay:0.3}}
-              >
-                <span style={{display:'block',background:'linear-gradient(to right,#fff,#fff,#cbd5e1)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}}>
-                  AI-powered grading
-                </span>
-                <span style={{display:'block',background:'linear-gradient(to right,#fff,#fff,#cbd5e1)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}}>
-                  for Google Classroom
-                </span>
-              </motion.h1>
-              <motion.p
-                style={{color:'#64748b',fontSize:17,lineHeight:1.7,maxWidth:440}}
-                initial={{opacity:0}} animate={{opacity:1}} transition={{duration:0.8,delay:0.5}}
-              >
-                Grade entire coursework submissions in minutes with Gemini AI.
-                Smart rubric matching, auto feedback, instant results.
-              </motion.p>
-            </div>
-
-            <motion.div
-              style={{display:'flex',flexDirection:'column',gap:16}}
-              initial={{opacity:0}} animate={{opacity:1}} transition={{duration:0.8,delay:0.7}}
-            >
-              {FEATURES.map((f, i) => (
-                <motion.div
-                  key={f.label}
-                  style={{display:'flex',alignItems:'center',gap:12}}
-                  initial={{opacity:0,x:-20}} animate={{opacity:1,x:0}}
-                  transition={{duration:0.5,delay:0.8 + i*0.1}}
-                >
-                  <div style={{width:36,height:36,borderRadius:10,background:'rgba(255,255,255,0.03)',border:'1px solid rgba(255,255,255,0.07)',display:'flex',alignItems:'center',justifyContent:'center'}}>
+        <div className="auth-grid">
+          {/* Left */}
+          <div className="auth-left fade-up">
+            <h1 className="auth-h1">
+              <span>AI-powered grading</span>
+              <span>for Google Classroom</span>
+            </h1>
+            <p className="auth-tagline">
+              Grade entire coursework submissions in minutes with Gemini AI.
+              Smart rubric matching, auto feedback, instant results.
+            </p>
+            <div className="auth-features">
+              {FEATURES.map((f) => (
+                <div key={f.label} className="auth-feat">
+                  <div className="auth-feat-icon">
                     <f.icon size={16} color={f.color}/>
                   </div>
-                  <span style={{color:'#94a3b8',fontSize:14}}>{f.label}</span>
-                </motion.div>
+                  <span>{f.label}</span>
+                </div>
               ))}
-            </motion.div>
-          </motion.div>
+            </div>
+          </div>
 
-          {/* Right — Auth card */}
-          <motion.div
-            style={{width:'100%',maxWidth:440,marginLeft:'auto'}}
-            initial={{opacity:0,x:50}} animate={{opacity:1,x:0}} transition={{duration:0.8,delay:0.4}}
-          >
-            <div style={{background:'rgba(15,23,42,0.5)',backdropFilter:'blur(24px)',border:'1px solid rgba(255,255,255,0.07)',borderRadius:20,padding:32,boxShadow:'0 25px 50px rgba(0,0,0,0.5)'}}>
-
+          {/* Right — card */}
+          <div className="auth-right fade-up" style={{animationDelay:'0.1s'}}>
+            <div className="auth-card">
               {/* Tabs */}
-              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:4,background:'rgba(255,255,255,0.04)',border:'1px solid rgba(255,255,255,0.06)',borderRadius:10,padding:4,marginBottom:24}}>
+              <div className="auth-tabs">
                 {[{id:'signin',label:'Sign in'},{id:'create',label:'Create account'}].map(t => (
-                  <button
-                    key={t.id}
-                    onClick={() => setTab(t.id)}
-                    style={{padding:'8px 12px',borderRadius:7,border:'none',cursor:'pointer',fontSize:14,fontWeight:500,fontFamily:'Inter,sans-serif',transition:'all 0.15s',
-                      background: tab===t.id ? 'rgba(255,255,255,0.07)' : 'transparent',
-                      color: tab===t.id ? '#f1f5f9' : '#64748b'}}
-                  >{t.label}</button>
+                  <button key={t.id} className={`auth-tab ${tab===t.id?'active':''}`} onClick={() => setTab(t.id)}>
+                    {t.label}
+                  </button>
                 ))}
               </div>
 
-              <form onSubmit={handleSubmit} style={{display:'flex',flexDirection:'column',gap:16,marginBottom:20}}>
+              <form onSubmit={handleSubmit} className="auth-form">
                 {tab === 'create' && (
-                  <div className="fade-in">
-                    <label style={{fontSize:13,color:'#64748b',display:'block',marginBottom:6}}>Full Name</label>
-                    <input className="form-input" placeholder="Your full name" value={fullName} onChange={e=>setFullName(e.target.value)}/>
+                  <div className="input-group fade-in">
+                    <label className="form-label" style={{textTransform:'none',fontSize:13,fontWeight:400,color:'#64748b'}}>Full Name</label>
+                    <input className="form-input" style={{height:48}} placeholder="Your full name" value={fullName} onChange={e=>setFullName(e.target.value)}/>
                   </div>
                 )}
-                <div>
-                  <label style={{fontSize:13,color:'#64748b',display:'block',marginBottom:6}}>Email</label>
-                  <input className="form-input" type="email" placeholder="teacher@school.edu" value={email} onChange={e=>setEmail(e.target.value)} style={{height:48}}/>
+                <div className="input-group">
+                  <label className="form-label" style={{textTransform:'none',fontSize:13,fontWeight:400,color:'#64748b'}}>Email</label>
+                  <input className="form-input" style={{height:48}} type="email" placeholder="teacher@school.edu" value={email} onChange={e=>setEmail(e.target.value)}/>
                 </div>
                 <button className="btn btn-emerald btn-lg" type="submit" disabled={loading} style={{width:'100%',justifyContent:'center',height:48}}>
                   {loading ? <span className="spinner"/> : (tab==='signin' ? 'Sign in' : 'Create account')}
                 </button>
               </form>
 
-              {/* Divider */}
-              <div style={{position:'relative',textAlign:'center',margin:'20px 0'}}>
-                <div style={{position:'absolute',top:'50%',left:0,right:0,height:1,background:'rgba(255,255,255,0.07)'}}/>
-                <span style={{position:'relative',background:'transparent',padding:'0 12px',fontSize:12,color:'#334155'}}>or continue with</span>
-              </div>
+              <div className="auth-divider"><span>or continue with</span></div>
 
-              <a
-                href={googleAuthUrl()}
-                className="btn btn-outline btn-lg"
-                style={{width:'100%',justifyContent:'center',height:48,marginBottom:16}}
-              >
+              <a href={googleAuthUrl()} className="btn btn-outline btn-lg" style={{width:'100%',justifyContent:'center',height:48,marginBottom:16}}>
                 <GoogleIcon/> Google Sign in
               </a>
 
@@ -162,15 +108,37 @@ export default function AuthPage() {
                 By continuing, you grant read-only access to your Google Classroom courses and Drive files.
               </p>
             </div>
-          </motion.div>
+          </div>
         </div>
       </div>
 
       <style>{`
-        @media (max-width: 768px) {
-          div[style*="gridTemplateColumns: 1fr 1fr"] { grid-template-columns: 1fr !important; padding: 24px 20px !important; }
-          div[style*="marginLeft: auto"] { margin: 0 auto !important; }
-        }
+        .auth-page { min-height:100vh; background:#020817; color:#f1f5f9; position:relative; overflow:hidden; }
+        .auth-bg-base { position:fixed; inset:0; background:linear-gradient(to bottom,#020817,#0f172a,#020817); pointer-events:none; }
+        .auth-blob-1 { position:fixed; top:-50%; left:-50%; width:100%; height:100%; background:radial-gradient(circle,rgba(16,185,129,0.05) 0%,transparent 70%); border-radius:50%; filter:blur(60px); pointer-events:none; animation:float1 25s ease-in-out infinite; }
+        .auth-inner { position:relative; z-index:1; }
+        .auth-header { display:flex; align-items:center; gap:12px; padding:24px 48px; }
+        .auth-logo-icon { width:40px; height:40px; border-radius:12px; background:rgba(16,185,129,0.1); border:1px solid rgba(16,185,129,0.2); display:flex; align-items:center; justify-content:center; }
+        .auth-logo-text { font-size:20px; font-weight:600; letter-spacing:-0.02em; }
+        .auth-grid { display:grid; grid-template-columns:1fr 1fr; gap:48px; padding:24px 48px 48px; max-width:1280px; margin:0 auto; align-items:center; min-height:calc(100vh - 88px); }
+        .auth-left { display:flex; flex-direction:column; gap:32px; }
+        .auth-h1 { font-size:clamp(36px,5vw,68px); font-weight:600; letter-spacing:-0.03em; line-height:1.1; display:flex; flex-direction:column; gap:4px; }
+        .auth-h1 span { background:linear-gradient(to right,#fff,#fff,#cbd5e1); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+        .auth-tagline { color:#64748b; font-size:16px; line-height:1.7; max-width:440px; }
+        .auth-features { display:flex; flex-direction:column; gap:16px; }
+        .auth-feat { display:flex; align-items:center; gap:12px; }
+        .auth-feat-icon { width:36px; height:36px; border-radius:10px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.07); display:flex; align-items:center; justify-content:center; }
+        .auth-feat span { color:#94a3b8; font-size:14px; }
+        .auth-right { display:flex; justify-content:center; }
+        .auth-card { width:100%; max-width:440px; background:rgba(15,23,42,0.5); backdrop-filter:blur(24px); border:1px solid rgba(255,255,255,0.07); border-radius:20px; padding:32px; box-shadow:0 25px 50px rgba(0,0,0,0.5); }
+        .auth-tabs { display:grid; grid-template-columns:1fr 1fr; gap:4px; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.06); border-radius:10px; padding:4px; margin-bottom:24px; }
+        .auth-tab { padding:8px 12px; border-radius:7px; border:none; cursor:pointer; font-size:14px; font-weight:500; font-family:'Inter',sans-serif; transition:all 0.15s; background:transparent; color:#64748b; }
+        .auth-tab.active { background:rgba(255,255,255,0.07); color:#f1f5f9; }
+        .auth-form { display:flex; flex-direction:column; gap:16px; margin-bottom:20px; }
+        .auth-divider { position:relative; text-align:center; margin:20px 0; }
+        .auth-divider::before { content:''; position:absolute; top:50%; left:0; right:0; height:1px; background:rgba(255,255,255,0.07); }
+        .auth-divider span { position:relative; background:rgba(15,23,42,0.9); padding:0 12px; font-size:12px; color:#334155; }
+        @media(max-width:768px) { .auth-grid { grid-template-columns:1fr; padding:20px; } .auth-left { display:none; } .auth-header { padding:20px; } }
       `}</style>
     </div>
   );
@@ -178,7 +146,7 @@ export default function AuthPage() {
 
 function GoogleIcon() {
   return (
-    <svg width="18" height="18" viewBox="0 0 24 24">
+    <svg width="18" height="18" viewBox="0 0 24 24" style={{marginRight:4}}>
       <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
       <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
       <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>

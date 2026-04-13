@@ -1,6 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
 import { Upload, Info, Clock, CheckCircle, ArrowRight, PlusCircle } from 'lucide-react';
 import { getCourses, createCoursework } from '../api';
 import toast from 'react-hot-toast';
@@ -13,26 +12,19 @@ export default function CreateAssignmentPage() {
   const [done, setDone] = useState(null);
   const fileRef = useRef();
 
-  const [form, setForm] = useState({
-    courseId: '', title: '', description: '',
-    maxPoints: '', dueDate: '', dueTime: '23:59', file: null,
-  });
+  const [form, setForm] = useState({ courseId:'', title:'', description:'', maxPoints:'', dueDate:'', dueTime:'23:59', file:null });
 
   useEffect(() => {
-    getCourses()
-      .then(d => setCourses(d.courses || []))
-      .catch(e => toast.error(e.message))
-      .finally(() => setLoadingCourses(false));
+    getCourses().then(d=>setCourses(d.courses||[])).catch(e=>toast.error(e.message)).finally(()=>setLoadingCourses(false));
   }, []);
 
-  const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+  const set = (k, v) => setForm(f => ({ ...f, [k]:v }));
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!form.courseId) return toast.error('Select a course');
     if (!form.title.trim()) return toast.error('Title is required');
     if (!form.file) return toast.error('Question paper file is required');
-
     setSubmitting(true);
     try {
       const fd = new FormData();
@@ -40,49 +32,30 @@ export default function CreateAssignmentPage() {
       fd.append('title', form.title);
       if (form.description) fd.append('description', form.description);
       if (form.maxPoints)   fd.append('maxPoints', String(form.maxPoints));
-      if (form.dueDate) {
-        fd.append('dueDate', form.dueDate);
-        fd.append('dueTime', form.dueTime || '23:59');
-      }
+      if (form.dueDate) { fd.append('dueDate', form.dueDate); fd.append('dueTime', form.dueTime||'23:59'); }
       const res = await createCoursework(form.courseId, fd);
-      setDone({ ...res, courseId: form.courseId, dueDate: form.dueDate, dueTime: form.dueTime });
+      setDone({ ...res, courseId:form.courseId, dueDate:form.dueDate, dueTime:form.dueTime });
       toast.success('Assignment published to Classroom!');
-    } catch (e) {
-      toast.error(e.message);
-    } finally {
-      setSubmitting(false);
-    }
+    } catch(e) { toast.error(e.message); }
+    finally { setSubmitting(false); }
   };
 
-  const reset = () => {
-    setDone(null);
-    setForm({ courseId:'', title:'', description:'', maxPoints:'', dueDate:'', dueTime:'23:59', file:null });
-  };
+  const reset = () => { setDone(null); setForm({ courseId:'', title:'', description:'', maxPoints:'', dueDate:'', dueTime:'23:59', file:null }); };
 
   if (done) {
     return (
       <div className="page-wrap" style={{maxWidth:600}}>
-        <motion.div
-          className="glass-card"
-          style={{padding:40,display:'flex',flexDirection:'column',alignItems:'center',textAlign:'center'}}
-          initial={{opacity:0,scale:0.95}} animate={{opacity:1,scale:1}} transition={{duration:0.5}}
-        >
+        <div className="glass-card fade-up" style={{padding:40,display:'flex',flexDirection:'column',alignItems:'center',textAlign:'center'}}>
           <div style={{width:72,height:72,borderRadius:18,background:'rgba(16,185,129,0.1)',border:'1px solid rgba(16,185,129,0.2)',display:'flex',alignItems:'center',justifyContent:'center',marginBottom:20}}>
             <CheckCircle size={36} color="#34d399"/>
           </div>
           <h2 style={{fontSize:22,fontWeight:600,marginBottom:10}}>Assignment Published!</h2>
-          <p style={{color:'#64748b',fontSize:14,marginBottom:28,lineHeight:1.7}}>
-            Your assignment has been created in Google Classroom. Students can now submit, and you can start AI grading once submissions come in.
-          </p>
+          <p style={{color:'#64748b',fontSize:14,marginBottom:28,lineHeight:1.7}}>Your assignment has been created in Google Classroom. Students can now submit their work.</p>
           <div style={{background:'rgba(255,255,255,0.02)',border:'1px solid rgba(255,255,255,0.07)',borderRadius:12,padding:16,width:'100%',display:'flex',flexDirection:'column',gap:10,marginBottom:28}}>
-            {[
-              {label:'Coursework ID', val:done.courseworkId},
-              {label:'Drive File ID', val:done.driveId},
-              ...(done.dueDate ? [{label:'Deadline', val:`${done.dueDate} at ${done.dueTime}`}] : []),
-            ].map(r => (
-              <div key={r.label} style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:12,fontSize:12}}>
-                <span style={{color:'#475569'}}>{r.label}</span>
-                <span style={{color:'#22d3ee',fontFamily:'monospace',fontSize:11,wordBreak:'break-all',textAlign:'right'}}>{r.val}</span>
+            {[{l:'Coursework ID',v:done.courseworkId},{l:'Drive File ID',v:done.driveId},...(done.dueDate?[{l:'Deadline',v:`${done.dueDate} at ${done.dueTime}`}]:[])].map(r=>(
+              <div key={r.l} style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:12,fontSize:12}}>
+                <span style={{color:'#475569'}}>{r.l}</span>
+                <span style={{color:'#22d3ee',fontFamily:'monospace',fontSize:11,wordBreak:'break-all',textAlign:'right'}}>{r.v}</span>
               </div>
             ))}
           </div>
@@ -90,63 +63,50 @@ export default function CreateAssignmentPage() {
             <button className="btn btn-outline" onClick={reset}><PlusCircle size={13}/> Create Another</button>
             <button className="btn btn-emerald" onClick={() => nav(`/courses/${done.courseId}`)}>Go to Course <ArrowRight size={13}/></button>
           </div>
-        </motion.div>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="page-wrap" style={{maxWidth:760}}>
-      <motion.div style={{marginBottom:28}} initial={{opacity:0,y:-20}} animate={{opacity:1,y:0}} transition={{duration:0.6}}>
+      <div className="fade-up" style={{marginBottom:28}}>
         <p className="page-eyebrow">AutoGrade</p>
         <h1 className="page-title">Create Assignment</h1>
         <p className="page-sub">Upload a question paper — we publish it to Classroom and register it for AI grading.</p>
-      </motion.div>
+      </div>
 
-      {/* Info banner */}
-      <motion.div
-        style={{marginBottom:28,padding:'16px 20px',borderRadius:14,background:'rgba(139,92,246,0.07)',border:'1px solid rgba(139,92,246,0.2)',display:'flex',gap:12}}
-        initial={{opacity:0}} animate={{opacity:1}} transition={{duration:0.6,delay:0.1}}
-      >
+      <div className="fade-up" style={{marginBottom:28,padding:'16px 20px',borderRadius:14,background:'rgba(139,92,246,0.07)',border:'1px solid rgba(139,92,246,0.2)',display:'flex',gap:12,animationDelay:'0.05s'}}>
         <Info size={18} color="#34d399" style={{flexShrink:0,marginTop:2}}/>
         <p style={{fontSize:13,color:'#94a3b8',lineHeight:1.6}}>
           Assignments created here will appear under <span style={{color:'#34d399',fontWeight:500}}>Graded via AutoGrade.ai</span> on the course page, and support the <span style={{color:'#34d399',fontWeight:500}}>Sync to Classroom</span> feature after grading.
         </p>
-      </motion.div>
+      </div>
 
-      <motion.form
-        onSubmit={handleSubmit}
-        style={{display:'flex',flexDirection:'column',gap:22}}
-        initial={{opacity:0,y:20}} animate={{opacity:1,y:0}} transition={{duration:0.6,delay:0.2}}
-      >
-        {/* Course */}
+      <form onSubmit={handleSubmit} className="fade-up" style={{display:'flex',flexDirection:'column',gap:22,animationDelay:'0.1s'}}>
         <div>
           <label className="form-label">COURSE <span style={{color:'#ef4444'}}>*</span></label>
           <select className="form-input" style={{height:48}} value={form.courseId} onChange={e=>set('courseId',e.target.value)} disabled={loadingCourses}>
             <option value="">— Select a course —</option>
-            {courses.map(c => <option key={c.id} value={c.id}>{c.name}{c.section?` (${c.section})`:''}</option>)}
+            {courses.map(c=><option key={c.id} value={c.id}>{c.name}{c.section?` (${c.section})`:''}</option>)}
           </select>
         </div>
 
-        {/* Title */}
         <div>
           <label className="form-label">ASSIGNMENT TITLE <span style={{color:'#ef4444'}}>*</span></label>
           <input className="form-input" style={{height:48}} placeholder="e.g. Chapter 5 Assignment" value={form.title} onChange={e=>set('title',e.target.value)}/>
         </div>
 
-        {/* Description */}
         <div>
           <label className="form-label">DESCRIPTION <Opt/></label>
           <textarea className="form-input" rows={4} placeholder="Instructions or notes for students..." value={form.description} onChange={e=>set('description',e.target.value)}/>
         </div>
 
-        {/* Max points */}
         <div>
           <label className="form-label">MAX POINTS <Opt/></label>
           <input className="form-input" style={{height:48}} type="number" min={1} placeholder="100" value={form.maxPoints} onChange={e=>set('maxPoints',e.target.value)}/>
         </div>
 
-        {/* Deadline */}
         <div>
           <label className="form-label" style={{display:'flex',alignItems:'center',gap:6}}><Clock size={13}/> DEADLINE <Opt/></label>
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14}}>
@@ -166,11 +126,10 @@ export default function CreateAssignmentPage() {
           )}
         </div>
 
-        {/* File upload */}
         <div>
           <label className="form-label">QUESTION PAPER FILE <span style={{color:'#ef4444'}}>*</span></label>
           <div
-            style={{display:'flex',alignItems:'center',gap:16,padding:24,borderRadius:14,background:'rgba(15,23,42,0.5)',border:`2px dashed ${form.file?'rgba(16,185,129,0.4)':'rgba(255,255,255,0.08)'}`,cursor:'pointer',transition:'all 0.2s'}}
+            style={{display:'flex',alignItems:'center',gap:16,padding:24,borderRadius:14,background:'rgba(15,23,42,0.5)',border:`2px dashed ${form.file?'rgba(16,185,129,0.4)':'rgba(255,255,255,0.08)'}`,cursor:'pointer',transition:'border-color 0.2s'}}
             onClick={() => fileRef.current.click()}
             onMouseEnter={e=>e.currentTarget.style.borderColor='rgba(139,92,246,0.4)'}
             onMouseLeave={e=>e.currentTarget.style.borderColor=form.file?'rgba(16,185,129,0.4)':'rgba(255,255,255,0.08)'}
@@ -180,26 +139,20 @@ export default function CreateAssignmentPage() {
               <Upload size={22} color={form.file?'#34d399':'#475569'}/>
             </div>
             <div style={{flex:1}}>
-              <p style={{fontSize:14,fontWeight:500,color:form.file?'#f1f5f9':'#94a3b8',marginBottom:2}}>
-                {form.file ? form.file.name : 'Click to upload question paper'}
-              </p>
-              <p style={{fontSize:11,color:'#334155'}}>
-                {form.file ? `${(form.file.size/1024).toFixed(1)} KB` : 'PDF, DOC, DOCX, TXT, PNG, JPG'}
-              </p>
+              <p style={{fontSize:14,fontWeight:500,color:form.file?'#f1f5f9':'#94a3b8',marginBottom:2}}>{form.file?form.file.name:'Click to upload question paper'}</p>
+              <p style={{fontSize:11,color:'#334155'}}>{form.file?`${(form.file.size/1024).toFixed(1)} KB`:'PDF, DOC, DOCX, TXT, PNG, JPG'}</p>
             </div>
             {form.file && <CheckCircle size={18} color="#34d399"/>}
           </div>
-          <p style={{fontSize:11,color:'#334155',marginTop:8,lineHeight:1.6}}>
-            The file is uploaded to Google Drive and attached to the assignment as view-only material for students.
-          </p>
+          <p style={{fontSize:11,color:'#334155',marginTop:8,lineHeight:1.6}}>The file is uploaded to Google Drive and attached to the assignment as view-only material for students.</p>
         </div>
 
         <div style={{paddingTop:8}}>
           <button className="btn btn-emerald btn-lg" type="submit" disabled={submitting}>
-            {submitting ? <><span className="spinner"/> Publishing…</> : <><Upload size={16}/> Publish to Classroom</>}
+            {submitting?<><span className="spinner"/> Publishing…</>:<><Upload size={16}/> Publish to Classroom</>}
           </button>
         </div>
-      </motion.form>
+      </form>
     </div>
   );
 }
