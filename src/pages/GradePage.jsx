@@ -1,202 +1,259 @@
 import { useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
+import {
+  ArrowLeft, Users, TrendingUp, Trophy, BarChart3, RefreshCw,
+  Search, ChevronDown, ChevronUp, MessageSquare, Send
+} from 'lucide-react';
 import { getDashboard, getCreatedCourseWork, syncMarksToClassroom } from '../api';
-import { ArrowLeft, Users, TrendingUp, Award, AlertCircle, Send, Info } from 'lucide-react';
 import toast from 'react-hot-toast';
 
-const REMARK_COLOR = { Excellent:'badge-green', Good:'badge-blue', Fair:'badge-yellow', Poor:'badge-red', 'Very Poor':'badge-red' };
+const GRADE_COLORS = {
+  A: { bg:'rgba(34,197,94,0.15)',  color:'#4ade80', border:'rgba(34,197,94,0.3)'  },
+  B: { bg:'rgba(6,182,212,0.15)',  color:'#22d3ee', border:'rgba(6,182,212,0.3)'  },
+  C: { bg:'rgba(234,179,8,0.15)',  color:'#facc15', border:'rgba(234,179,8,0.3)'  },
+  D: { bg:'rgba(239,68,68,0.15)',  color:'#f87171', border:'rgba(239,68,68,0.3)'  },
+};
+const REMARK_COLORS = {
+  Excellent: { bg:'rgba(34,197,94,0.12)',  color:'#4ade80', border:'rgba(34,197,94,0.25)'  },
+  Good:      { bg:'rgba(6,182,212,0.12)',  color:'#22d3ee', border:'rgba(6,182,212,0.25)'  },
+  Fair:      { bg:'rgba(234,179,8,0.12)',  color:'#facc15', border:'rgba(234,179,8,0.25)'  },
+  Poor:      { bg:'rgba(139,92,246,0.12)',color:'#a78bfa', border:'rgba(139,92,246,0.25)'},
+  'Very Poor':{ bg:'rgba(239,68,68,0.12)',color:'#f87171', border:'rgba(239,68,68,0.25)' },
+};
 
 export default function GradePage() {
   const { courseId, courseWorkId } = useParams();
-  const [results, setResults] = useState([]);
+  const nav = useNavigate();
+  const [results, setResults]     = useState([]);
   const [maxPoints, setMaxPoints] = useState(null);
   const [isCreated, setIsCreated] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [sort, setSort] = useState('score_desc');
-  const [search, setSearch] = useState('');
-  const [expanded, setExpanded] = useState(null);
-  const [syncing, setSyncing] = useState(false);
+  const [loading, setLoading]     = useState(true);
+  const [search, setSearch]       = useState('');
+  const [sort, setSort]           = useState('score_desc');
+  const [expanded, setExpanded]   = useState(null);
+  const [syncing, setSyncing]     = useState(false);
   const [syncResult, setSyncResult] = useState(null);
 
   useEffect(() => {
     if (!courseId || !courseWorkId) return;
-    Promise.all([
-      getDashboard(courseId, courseWorkId),
-      getCreatedCourseWork(courseId),
-    ])
+    Promise.all([getDashboard(courseId, courseWorkId), getCreatedCourseWork(courseId)])
       .then(([dash, cwData]) => {
         setResults(dash.results || []);
         const cw = (cwData.courseWork || []).find(c => c.id === courseWorkId);
-        if (cw) { setIsCreated(true); if (cw.maxPoints!=null) setMaxPoints(cw.maxPoints); }
+        if (cw) { setIsCreated(true); if (cw.maxPoints != null) setMaxPoints(cw.maxPoints); }
       })
       .catch(e => toast.error(e.message))
       .finally(() => setLoading(false));
   }, [courseId, courseWorkId]);
 
+  const max = maxPoints ?? (results.length ? Math.max(...results.map(r => r.score)) : 100);
+  const avg = results.length ? (results.reduce((s,r)=>s+r.score,0)/results.length).toFixed(1) : 0;
+  const top = results.length ? Math.max(...results.map(r => r.score)) : 0;
+
   const filtered = results
     .filter(r => (r.studentName||'').toLowerCase().includes(search.toLowerCase()) || (r.studentEmail||'').toLowerCase().includes(search.toLowerCase()))
-    .sort((a,b) => sort==='score_desc'?b.score-a.score:sort==='score_asc'?a.score-b.score:(a.studentName||'').localeCompare(b.studentName||''));
+    .sort((a,b) => sort==='score_desc'?b.score-a.score : sort==='score_asc'?a.score-b.score : (a.studentName||'').localeCompare(b.studentName||''));
 
-  const max = maxPoints ?? (results.length ? Math.max(...results.map(r=>r.score)) : 100);
-  const avg = results.length ? (results.reduce((s,r)=>s+r.score,0)/results.length).toFixed(1) : 0;
-  const top = results.length ? Math.max(...results.map(r=>r.score)) : 0;
-  const remarkDist = results.reduce((acc,r)=>{ acc[r.remark]=(acc[r.remark]||0)+1; return acc; },{});
+  const scoreBarColor = (score) => {
+    const pct = max > 0 ? (score/max)*100 : 0;
+    if (pct >= 80) return '#22c55e';
+    if (pct >= 60) return '#22d3ee';
+    if (pct >= 40) return '#eab308';
+    return '#ef4444';
+  };
 
   const syncMarks = async () => {
     setSyncing(true);
-    try { const res = await syncMarksToClassroom(courseId, courseWorkId); setSyncResult(res); toast.success(`Synced ${res.patchedCount} grades!`); }
-    catch(e) { toast.error(e.message); }
+    try {
+      const res = await syncMarksToClassroom(courseId, courseWorkId);
+      setSyncResult(res);
+      toast.success(`Synced ${res.patchedCount} grades to Classroom!`);
+    } catch(e) { toast.error(e.message); }
     finally { setSyncing(false); }
   };
 
   return (
-    <div className="page" style={{maxWidth:1020}}>
-      <div className="page-header">
-        <div style={{display:'flex',alignItems:'center',gap:13}}>
-          <Link to={`/courses/${courseId||''}`} className="btn btn-secondary btn-sm btn-icon"><ArrowLeft size={13}/></Link>
-          <div>
-            <p className="page-label mono">{courseWorkId}</p>
-            <h1 className="page-title">Grade Results</h1>
+    <div className="page-wrap">
+      {/* Header */}
+      <motion.div style={{marginBottom:32}} initial={{opacity:0,y:-20}} animate={{opacity:1,y:0}} transition={{duration:0.6}}>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,flexWrap:'wrap'}}>
+          <div style={{display:'flex',alignItems:'center',gap:16}}>
+            <button
+              onClick={() => nav('/grades')}
+              style={{width:40,height:40,borderRadius:10,background:'rgba(15,23,42,0.5)',border:'1px solid rgba(255,255,255,0.08)',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer'}}
+            >
+              <ArrowLeft size={18} color="#94a3b8"/>
+            </button>
+            <div>
+              <p style={{fontSize:12,color:'#475569',marginBottom:2,fontFamily:'monospace'}}>{courseWorkId}</p>
+              <h1 className="page-title" style={{marginBottom:0}}>Grade Results</h1>
+            </div>
           </div>
+          {isCreated && results.length > 0 && (
+            <button className="btn btn-sync" onClick={syncMarks} disabled={syncing}>
+              {syncing ? <><span className="spinner" style={{width:14,height:14}}/> Syncing…</> : <><RefreshCw size={14}/> Sync to Classroom</>}
+            </button>
+          )}
         </div>
-        {isCreated && results.length>0 && (
-          <button className="btn btn-teal" onClick={syncMarks} disabled={syncing}>
-            {syncing?<><span className="spinner" style={{width:14,height:14}}/> Syncing…</>:<><Send size={13}/> Sync to Classroom</>}
-          </button>
-        )}
-      </div>
-
-      {/* Sync availability notice */}
-      {!loading && !isCreated && results.length>0 && (
-        <div className="no-sync-banner fade-up">
-          <Info size={13} style={{flexShrink:0}}/>
-          <span>This assignment has not been graded via AutoGrade.ai yet. Grade it first from the Courses page — sync will be available once grading completes.</span>
-        </div>
-      )}
+      </motion.div>
 
       {/* Sync result */}
       {syncResult && (
-        <div className="sync-banner fade-up">
-          <Send size={13} style={{color:'var(--teal)',flexShrink:0}}/>
-          <span>Sync complete — <strong style={{color:'var(--green)'}}>{syncResult.patchedCount} synced</strong>, {syncResult.missingSubmissionCount} missing, {syncResult.failedCount} failed.</span>
-          {syncResult.failures?.length>0&&(
-            <details style={{marginLeft:'auto'}}>
-              <summary style={{fontSize:11,cursor:'pointer',color:'var(--text-3)'}}>Details</summary>
-              <div style={{marginTop:5,display:'flex',flexDirection:'column',gap:3}}>
-                {syncResult.failures.map((f,i)=><div key={i} className="mono" style={{fontSize:10,color:'var(--red)'}}>{f.studentId} — {f.reason}</div>)}
-              </div>
-            </details>
-          )}
-        </div>
+        <motion.div
+          style={{marginBottom:20,padding:'12px 16px',borderRadius:12,background:'rgba(6,182,212,0.06)',border:'1px solid rgba(6,182,212,0.2)',display:'flex',alignItems:'center',gap:10,fontSize:13,flexWrap:'wrap'}}
+          initial={{opacity:0}} animate={{opacity:1}}
+        >
+          <Send size={13} color="#22d3ee" style={{flexShrink:0}}/>
+          <span>Sync complete — <strong style={{color:'#34d399'}}>{syncResult.patchedCount} synced</strong>, {syncResult.missingSubmissionCount} missing, {syncResult.failedCount} failed.</span>
+        </motion.div>
       )}
 
       {/* Stats */}
-      {results.length>0 && (
-        <div className="g-stats fade-up">
-          <Pill icon={<Users size={12}/>} label="Students" value={results.length}/>
-          <Pill icon={<TrendingUp size={12}/>} label="Average" value={`${avg} / ${max}`}/>
-          <Pill icon={<Award size={12}/>} label="Top Score" value={`${top} / ${max}`}/>
-          {Object.entries(remarkDist).map(([r,n])=><Pill key={r} label={r} value={n} small/>)}
-          {isCreated && <Pill label="Sync" value="Available" color="teal" small/>}
-        </div>
+      {results.length > 0 && (
+        <motion.div
+          style={{display:'grid',gridTemplateColumns:'repeat(5,1fr)',gap:12,marginBottom:24}}
+          initial={{opacity:0,y:20}} animate={{opacity:1,y:0}} transition={{duration:0.6,delay:0.2}}
+        >
+          {[
+            { icon:Users,      color:'#a78bfa', label:'Students', val:results.length },
+            { icon:TrendingUp, color:'#22d3ee', label:'Average',  val:`${avg} / ${max}` },
+            { icon:Trophy,     color:'#facc15', label:'Top Score',val:`${top} / ${max}` },
+            { icon:BarChart3,  color:'#60a5fa', label:'Graded',   val:results.filter(r=>r.status==='completed').length },
+            { icon:RefreshCw,  color:'#34d399', label:'Sync',     val:isCreated?'Available':'N/A', badge:isCreated },
+          ].map((s,i) => (
+            <motion.div key={s.label} className="glass-card" style={{padding:'16px'}}
+              initial={{opacity:0,scale:0.9}} animate={{opacity:1,scale:1}} transition={{duration:0.4,delay:0.3+i*0.08}}>
+              <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:8}}>
+                <s.icon size={14} color={s.color}/>
+                <span style={{fontSize:11,color:'#475569'}}>{s.label}</span>
+              </div>
+              {s.badge ? (
+                <span className="badge badge-emerald" style={{fontSize:10}}>{s.val}</span>
+              ) : (
+                <div style={{fontSize:20,fontWeight:500}}>{s.val}</div>
+              )}
+            </motion.div>
+          ))}
+        </motion.div>
       )}
 
       {/* Controls */}
-      <div className="g-controls fade-up">
-        <input className="input" style={{maxWidth:230,fontSize:13,padding:'8px 12px'}} placeholder="Search students…" value={search} onChange={e=>setSearch(e.target.value)}/>
-        <select className="input" style={{maxWidth:160,fontSize:13,padding:'8px 12px'}} value={sort} onChange={e=>setSort(e.target.value)}>
+      <motion.div
+        style={{display:'flex',gap:12,marginBottom:16,flexWrap:'wrap'}}
+        initial={{opacity:0,y:20}} animate={{opacity:1,y:0}} transition={{duration:0.6,delay:0.3}}
+      >
+        <div style={{position:'relative',flex:1,minWidth:200}}>
+          <Search size={14} color="#475569" style={{position:'absolute',left:12,top:'50%',transform:'translateY(-50%)'}}/>
+          <input className="form-input" style={{paddingLeft:36,height:44}} placeholder="Search students..." value={search} onChange={e=>setSearch(e.target.value)}/>
+        </div>
+        <select className="form-input" style={{width:160,height:44}} value={sort} onChange={e=>setSort(e.target.value)}>
           <option value="score_desc">Highest first</option>
           <option value="score_asc">Lowest first</option>
-          <option value="name">Name A–Z</option>
+          <option value="name">Name (A-Z)</option>
         </select>
-      </div>
+      </motion.div>
 
+      {/* Table */}
       {loading ? (
-        <div style={{display:'flex',flexDirection:'column',gap:8}}>{[1,2,3].map(i=><div key={i} className="skeleton" style={{height:54}}/>)}</div>
-      ) : filtered.length===0 ? (
-        <div className="empty-state fade-up"><AlertCircle size={34} style={{opacity:0.25}}/><p>{results.length===0?'No grading results yet. Start a grading job from the Courses page.':`No results match "${search}"`}</p></div>
-      ) : (
-        <div className="rt-wrap fade-up">
-          <table className="rt">
-            <thead>
-              <tr>
-                <th>Student</th><th>Score / {max}</th><th>Grade</th><th>Remark</th><th>Status</th><th/>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map(r=>(
-                <>
-                  <tr key={r._id||r.studentId} className="r-row" onClick={()=>setExpanded(expanded===r.studentId?null:r.studentId)}>
-                    <td>
-                      <div style={{display:'flex',alignItems:'center',gap:9}}>
-                        <div className="s-av">{(r.studentName||'S')[0].toUpperCase()}</div>
-                        <div><div style={{fontSize:13,fontWeight:600}}>{r.studentName}</div><div style={{fontSize:10,color:'var(--text-3)'}}>{r.studentEmail}</div></div>
-                      </div>
-                    </td>
-                    <td>
-                      <div style={{display:'flex',alignItems:'center',gap:8}}>
-                        <ScoreBar score={r.score} maxScore={max}/>
-                        <span className="mono" style={{fontSize:13,fontWeight:600}}>{r.score}</span>
-                      </div>
-                    </td>
-                    <td><span className="grade-pill">{r.grade}</span></td>
-                    <td><span className={`badge ${REMARK_COLOR[r.remark]||'badge-purple'}`}>{r.remark}</span></td>
-                    <td><span className={`badge ${r.status==='completed'?'badge-green':r.status==='failed'?'badge-red':'badge-yellow'}`}>{r.status}</span></td>
-                    <td style={{color:'var(--text-3)',fontSize:11,textAlign:'right'}}>{expanded===r.studentId?'▲':'▼'}</td>
-                  </tr>
-                  {expanded===r.studentId&&(
-                    <tr key={`fb-${r.studentId}`} className="fb-row">
-                      <td colSpan={6}>
-                        <div className="fb-box"><strong>AI Feedback</strong><p>{r.feedback||'No feedback provided.'}</p></div>
-                      </td>
-                    </tr>
-                  )}
-                </>
-              ))}
-            </tbody>
-          </table>
+        <div style={{display:'flex',flexDirection:'column',gap:8}}>{[1,2,3].map(i=><div key={i} className="skeleton" style={{height:60}}/>)}</div>
+      ) : filtered.length === 0 ? (
+        <div className="glass-card" style={{padding:48,textAlign:'center',color:'#475569'}}>
+          <p>{results.length===0 ? 'No grading results yet. Start a grading job from the Courses page.' : `No results match "${search}"`}</p>
         </div>
+      ) : (
+        <motion.div
+          className="glass-card"
+          style={{overflow:'hidden'}}
+          initial={{opacity:0,y:20}} animate={{opacity:1,y:0}} transition={{duration:0.6,delay:0.4}}
+        >
+          {/* Table header */}
+          <div style={{display:'grid',gridTemplateColumns:'4fr 2fr 2fr 2fr 1fr 1fr',gap:16,padding:'12px 20px',borderBottom:'1px solid rgba(255,255,255,0.06)',fontSize:11,color:'#475569',textTransform:'uppercase',letterSpacing:'0.07em'}}>
+            <div>Student</div>
+            <div style={{textAlign:'center'}}>Score / {max}</div>
+            <div style={{textAlign:'center'}}>Grade</div>
+            <div style={{textAlign:'center'}}>Remark</div>
+            <div style={{textAlign:'center'}}>Status</div>
+            <div/>
+          </div>
+
+          {/* Rows */}
+          <div style={{divideY:'1px solid rgba(255,255,255,0.06)'}}>
+            {filtered.map((r, i) => {
+              const isOpen = expanded === r.studentId;
+              const gradeC = GRADE_COLORS[r.grade] || GRADE_COLORS['D'];
+              const remarkC = REMARK_COLORS[r.remark] || REMARK_COLORS['Fair'];
+              const pct = max > 0 ? Math.min((r.score/max)*100, 100) : 0;
+              return (
+                <div key={r._id||r.studentId} style={{borderTop: i>0?'1px solid rgba(255,255,255,0.04)':'none'}}>
+                  <motion.div
+                    style={{display:'grid',gridTemplateColumns:'4fr 2fr 2fr 2fr 1fr 1fr',gap:16,padding:'16px 20px',cursor:'pointer',transition:'background 0.15s',alignItems:'center'}}
+                    onClick={() => setExpanded(isOpen ? null : r.studentId)}
+                    whileHover={{backgroundColor:'rgba(255,255,255,0.02)'}}
+                    initial={{opacity:0,x:-20}} animate={{opacity:1,x:0}} transition={{duration:0.4,delay:0.5+i*0.06}}
+                  >
+                    {/* Student */}
+                    <div style={{display:'flex',alignItems:'center',gap:12}}>
+                      <div style={{width:40,height:40,borderRadius:10,background:'linear-gradient(135deg,#7c3aed,#2563eb)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:14,fontWeight:600,flexShrink:0}}>
+                        {(r.studentName||'S')[0].toUpperCase()}
+                      </div>
+                      <div style={{minWidth:0}}>
+                        <div style={{fontSize:14,fontWeight:500,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{r.studentName}</div>
+                        <div style={{fontSize:11,color:'#475569',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{r.studentEmail}</div>
+                      </div>
+                    </div>
+
+                    {/* Score */}
+                    <div style={{display:'flex',alignItems:'center',justifyContent:'center',gap:8}}>
+                      <div style={{width:64,height:8,background:'#1e293b',borderRadius:99,overflow:'hidden'}}>
+                        <div style={{height:'100%',width:`${pct}%`,background:scoreBarColor(r.score),borderRadius:99,transition:'width 0.4s ease'}}/>
+                      </div>
+                      <span style={{fontSize:15,fontWeight:500,whiteSpace:'nowrap'}}>{r.score}</span>
+                    </div>
+
+                    {/* Grade */}
+                    <div style={{display:'flex',justifyContent:'center'}}>
+                      <span style={{padding:'3px 12px',borderRadius:99,background:gradeC.bg,color:gradeC.color,border:`1px solid ${gradeC.border}`,fontSize:13,fontWeight:600}}>{r.grade}</span>
+                    </div>
+
+                    {/* Remark */}
+                    <div style={{display:'flex',justifyContent:'center'}}>
+                      <span style={{padding:'3px 10px',borderRadius:99,background:remarkC.bg,color:remarkC.color,border:`1px solid ${remarkC.border}`,fontSize:11,fontWeight:500}}>{r.remark}</span>
+                    </div>
+
+                    {/* Status */}
+                    <div style={{display:'flex',justifyContent:'center'}}>
+                      <span className={`badge ${r.status==='completed'?'badge-green':r.status==='failed'?'badge-red':'badge-yellow'}`} style={{fontSize:10}}>{r.status}</span>
+                    </div>
+
+                    {/* Toggle */}
+                    <div style={{display:'flex',justifyContent:'center'}}>
+                      {isOpen ? <ChevronUp size={16} color="#475569"/> : <ChevronDown size={16} color="#475569"/>}
+                    </div>
+                  </motion.div>
+
+                  {/* Feedback */}
+                  {isOpen && (
+                    <motion.div
+                      initial={{opacity:0,height:0}} animate={{opacity:1,height:'auto'}} exit={{opacity:0,height:0}}
+                      transition={{duration:0.3}}
+                      style={{padding:'0 20px 20px',background:'rgba(15,23,42,0.3)'}}
+                    >
+                      <div style={{padding:'20px 24px',borderRadius:14,background:'rgba(255,255,255,0.03)',border:'1px solid rgba(255,255,255,0.07)'}}>
+                        <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:12}}>
+                          <MessageSquare size={16} color="#34d399"/>
+                          <span style={{fontSize:15,fontWeight:500,color:'#34d399'}}>AI Feedback</span>
+                        </div>
+                        <p style={{fontSize:13,color:'#94a3b8',lineHeight:1.75}}>{r.feedback || 'No feedback provided.'}</p>
+                      </div>
+                    </motion.div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </motion.div>
       )}
-
-      <style>{`
-        .no-sync-banner{display:flex;align-items:flex-start;gap:9px;padding:11px 14px;background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-sm);font-size:12px;color:var(--text-3);line-height:1.6;margin-bottom:16px;}
-        .sync-banner{display:flex;align-items:flex-start;gap:9px;padding:11px 14px;background:var(--teal-bg);border:1px solid rgba(45,212,191,0.2);border-radius:var(--radius-sm);font-size:13px;margin-bottom:16px;flex-wrap:wrap;}
-        .g-stats{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:16px;}
-        .g-controls{display:flex;gap:9px;flex-wrap:wrap;margin-bottom:14px;}
-        .rt-wrap{background:var(--bg-1);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;}
-        .rt{width:100%;border-collapse:collapse;}
-        .rt th{text-align:left;padding:10px 15px;font-size:10px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:0.07em;border-bottom:1px solid var(--border);background:var(--bg-2);}
-        .r-row{cursor:pointer;transition:background 0.14s;}
-        .r-row:hover{background:rgba(255,255,255,0.018);}
-        .rt td{padding:12px 15px;border-bottom:1px solid var(--border);vertical-align:middle;}
-        .r-row:last-child td{border-bottom:none;}
-        .s-av{width:28px;height:28px;border-radius:6px;background:var(--accent-glow);color:var(--accent-2);display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-size:11px;font-weight:700;flex-shrink:0;}
-        .grade-pill{font-family:'DM Mono',monospace;font-size:10px;font-weight:700;padding:2px 8px;border-radius:99px;background:var(--bg-3);color:var(--accent-2);}
-        .fb-row td{padding:0;border-bottom:1px solid var(--border);}
-        .fb-box{padding:13px 18px;background:var(--bg-2);font-size:13px;line-height:1.7;color:var(--text-2);border-left:3px solid var(--accent);}
-        .fb-box strong{color:var(--text);display:block;margin-bottom:4px;}
-      `}</style>
-    </div>
-  );
-}
-
-function ScoreBar({ score, maxScore }) {
-  const pct = maxScore>0 ? Math.min((score/maxScore)*100,100) : 0;
-  const color = pct>=75?'var(--green)':pct>=50?'var(--yellow)':'var(--red)';
-  return (
-    <div style={{width:52,height:5,background:'var(--bg-3)',borderRadius:99,overflow:'hidden'}}>
-      <div style={{height:'100%',width:`${pct}%`,background:color,borderRadius:99,transition:'width 0.4s ease'}}/>
-    </div>
-  );
-}
-
-function Pill({ icon, label, value, small, color }) {
-  const c = color==='teal'?{c:'var(--teal)',bg:'var(--teal-bg)'}:{c:'var(--accent-2)',bg:'var(--accent-glow)'};
-  return (
-    <div style={{display:'flex',alignItems:'center',gap:6,padding:small?'4px 10px':'8px 13px',background:'var(--bg-1)',border:'1px solid var(--border)',borderRadius:99,fontSize:small?10:11}}>
-      {icon&&<span style={{color:'var(--accent-2)'}}>{icon}</span>}
-      <span style={{color:'var(--text-3)'}}>{label}:</span>
-      <span style={{fontWeight:600,fontFamily:'DM Mono',color:color?c.c:undefined}}>{value}</span>
     </div>
   );
 }

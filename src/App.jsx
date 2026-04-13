@@ -14,9 +14,9 @@ import './index.css';
 function Protected({ children }) {
   const { user, loading } = useAuth();
   if (loading) return (
-    <div style={{display:'flex',alignItems:'center',justifyContent:'center',height:'100vh',flexDirection:'column',gap:14}}>
+    <div style={{display:'flex',alignItems:'center',justifyContent:'center',height:'100vh',flexDirection:'column',gap:14,background:'#020817'}}>
       <div className="spinner spinner-lg"/>
-      <p style={{color:'var(--text-3)',fontSize:13}}>Loading…</p>
+      <p style={{color:'#334155',fontSize:13}}>Loading…</p>
     </div>
   );
   if (!user) return <Navigate to="/" replace/>;
@@ -50,9 +50,17 @@ export default function App() {
     <BrowserRouter>
       <AuthProvider>
         <AppRoutes/>
-        <Toaster position="bottom-right" toastOptions={{
-          style:{ background:'var(--bg-2)', color:'var(--text)', border:'1px solid var(--border)', fontFamily:'DM Sans,sans-serif', fontSize:'13px' }
-        }}/>
+        <Toaster
+          position="bottom-right"
+          toastOptions={{
+            style:{
+              background:'rgba(15,23,42,0.95)', color:'#f1f5f9',
+              border:'1px solid rgba(255,255,255,0.08)',
+              fontFamily:'Inter,sans-serif', fontSize:'13px',
+              backdropFilter:'blur(12px)',
+            },
+          }}
+        />
       </AuthProvider>
     </BrowserRouter>
   );

@@ -1,43 +1,42 @@
 import { useEffect, useState, useRef } from 'react';
-import { useParams, Link } from 'react-router-dom';
-import { getCreatedCourseWork, getNotCreatedCourseWork, startGrading, getJobStatus, syncMarksToClassroom } from '../api';
+import { useParams, useNavigate, Link } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
-  ArrowLeft, Zap, Upload, ChevronDown, ChevronUp,
-  CheckCircle, XCircle, Clock, BarChart2, Send,
-  Loader, PlusSquare, Info
+  ArrowLeft, PlusCircle, TrendingUp, Clock, Sparkles, BarChart3,
+  ChevronDown, ChevronUp, Upload, FileText, Info, Check,
+  CheckCircle, XCircle, Loader, Send, RefreshCw
 } from 'lucide-react';
+import { getCreatedCourseWork, getNotCreatedCourseWork, startGrading, getJobStatus, syncMarksToClassroom } from '../api';
 import toast from 'react-hot-toast';
 
 const POLL_MS = 3000;
 
 export default function CourseDetailPage() {
   const { courseId } = useParams();
-  const [created, setCreated] = useState([]);       // from our system — sync enabled
-  const [imported, setImported] = useState([]);     // from Classroom only — no sync
+  const nav = useNavigate();
+  const [created, setCreated]   = useState([]);
+  const [imported, setImported] = useState([]);
   const [loadingC, setLoadingC] = useState(true);
   const [loadingI, setLoadingI] = useState(true);
-  const [grading, setGrading] = useState({});
-  const [syncing, setSyncing] = useState({});
+  const [grading, setGrading]   = useState({});
+  const [syncing, setSyncing]   = useState({});
   const [syncResult, setSyncResult] = useState({});
   const [expanded, setExpanded] = useState(null);
-  const [forms, setForms] = useState({});
+  const [forms, setForms]       = useState({});
   const polls = useRef({});
 
   useEffect(() => {
     getCreatedCourseWork(courseId)
       .then(d => setCreated(d.courseWork || []))
-      .catch(e => toast.error('Created CW: ' + e.message))
+      .catch(e => toast.error('Error: ' + e.message))
       .finally(() => setLoadingC(false));
-
     getNotCreatedCourseWork(courseId)
       .then(d => setImported(d.courseWork || []))
-      .catch(e => toast.error('Imported CW: ' + e.message))
+      .catch(e => toast.error('Error: ' + e.message))
       .finally(() => setLoadingI(false));
-
     return () => Object.values(polls.current).forEach(clearInterval);
   }, [courseId]);
 
-  // ── form helpers ──────────────────────────────────────────────────────────
   const extractDriveId = (cw) => {
     for (const m of cw.materials || []) {
       if (m?.driveFile?.driveFile?.id) return m.driveFile.driveFile.id;
@@ -54,10 +53,8 @@ export default function CourseDetailPage() {
     ...(forms[cw.id] || {}),
   });
 
-  const updateForm = (cwId, k, v) =>
-    setForms(f => ({ ...f, [cwId]: { ...(f[cwId] || {}), [k]: v } }));
+  const updateForm = (cwId, k, v) => setForms(f => ({ ...f, [cwId]: { ...(f[cwId]||{}), [k]: v } }));
 
-  // ── start grading ─────────────────────────────────────────────────────────
   const startJob = async (cw) => {
     const f = getForm(cw);
     if (!f.rubricContext.trim()) return toast.error('Rubric / Instructions are required');
@@ -70,7 +67,7 @@ export default function CourseDetailPage() {
     try {
       const res = await startGrading(courseId, cw.id, fd);
       toast.success('Grading job queued!');
-      setGrading(g => ({ ...g, [cw.id]: { jobId: res.jobId, state: 'queued', progress: { total:0, processed:0, failed:0 } } }));
+      setGrading(g => ({ ...g, [cw.id]: { jobId:res.jobId, state:'queued', progress:{total:0,processed:0,failed:0} } }));
       pollJob(cw.id, res.jobId);
     } catch (e) { toast.error(e.message); }
   };
@@ -82,356 +79,351 @@ export default function CourseDetailPage() {
         setGrading(g => ({ ...g, [cwId]: { ...g[cwId], ...data } }));
         if (data.state === 'completed' || data.state === 'failed') {
           clearInterval(iv); delete polls.current[cwId];
-          if (data.state === 'completed') toast.success('✅ Grading complete!');
-          else toast.error('Grading job failed');
+          data.state === 'completed' ? toast.success('✅ Grading complete!') : toast.error('Grading job failed');
         }
       } catch { clearInterval(iv); }
     }, POLL_MS);
     polls.current[cwId] = iv;
   };
 
-  // ── sync marks ────────────────────────────────────────────────────────────
   const syncMarks = async (cwId) => {
-    setSyncing(s => ({ ...s, [cwId]: true }));
+    setSyncing(s => ({...s,[cwId]:true}));
     try {
       const res = await syncMarksToClassroom(courseId, cwId);
-      setSyncResult(r => ({ ...r, [cwId]: res }));
+      setSyncResult(r => ({...r,[cwId]:res}));
       toast.success(`Synced ${res.patchedCount} grades to Classroom!`);
-    } catch (e) { toast.error(e.message); }
-    finally { setSyncing(s => ({ ...s, [cwId]: false })); }
+    } catch(e) { toast.error(e.message); }
+    finally { setSyncing(s => ({...s,[cwId]:false})); }
   };
 
-  const loading = loadingC && loadingI;
-
   return (
-    <div className="page" style={{maxWidth:1100}}>
-      <div className="page-header">
-        <div style={{display:'flex',alignItems:'center',gap:13}}>
-          <Link to="/courses" className="btn btn-secondary btn-sm btn-icon"><ArrowLeft size={13}/></Link>
-          <div>
-            <p className="page-label mono">{courseId}</p>
-            <h1 className="page-title">Assignments</h1>
-          </div>
-        </div>
-        <Link to="/create" className="btn btn-teal btn-sm"><PlusSquare size={13}/> New Assignment</Link>
-      </div>
-
-      {/* Column legend */}
-      <div className="legend fade-up">
-        <div className="leg-item">
-          <div className="leg-dot" style={{background:'var(--teal)'}}/>
-          <div>
-            <div className="leg-title">Graded via AutoGrade.ai</div>
-            <div className="leg-sub">Assignments that have been graded through AutoGrade.ai at least once. These support the Sync to Classroom feature.</div>
-          </div>
-        </div>
-        <div className="leg-div"/>
-        <div className="leg-item">
-          <div className="leg-dot" style={{background:'var(--accent-2)'}}/>
-          <div>
-            <div className="leg-title">Not Yet Graded</div>
-            <div className="leg-sub">Assignments from Classroom that have not been graded via AutoGrade.ai yet. Grade them first to unlock sync.</div>
-          </div>
-        </div>
-      </div>
-
-      {loading ? (
-        <div className="two-col">
-          <div style={{display:'flex',flexDirection:'column',gap:8}}>{[1,2].map(i=><div key={i} className="skeleton" style={{height:68}}/>)}</div>
-          <div style={{display:'flex',flexDirection:'column',gap:8}}>{[1,2,3].map(i=><div key={i} className="skeleton" style={{height:68}}/>)}</div>
-        </div>
-      ) : (
-        <div className="two-col fade-up">
-          {/* ── LEFT: Created by us ─────────────────────────────────────────── */}
-          <div className="col">
-            <div className="col-header teal">
-              <div className="col-h-left">
-                <div className="col-dot" style={{background:'var(--teal)'}}/>
-                <span className="col-title">Graded via AutoGrade.ai</span>
-                <span className="badge badge-teal">{loadingC?'…':created.length}</span>
-              </div>
-              <span className="badge badge-teal" style={{fontSize:10}}>Sync enabled</span>
+    <div className="page-wrap">
+      {/* Header */}
+      <motion.div style={{marginBottom:32}} initial={{opacity:0,y:-20}} animate={{opacity:1,y:0}} transition={{duration:0.6}}>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:12}}>
+          <div style={{display:'flex',alignItems:'center',gap:16}}>
+            <button
+              onClick={() => nav('/courses')}
+              style={{width:40,height:40,borderRadius:10,background:'rgba(15,23,42,0.5)',border:'1px solid rgba(255,255,255,0.08)',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',transition:'all 0.2s'}}
+            >
+              <ArrowLeft size={18} color="#94a3b8"/>
+            </button>
+            <div>
+              <p style={{fontSize:12,color:'#475569',marginBottom:2,fontFamily:'monospace'}}>{courseId}</p>
+              <h1 className="page-title" style={{marginBottom:0}}>Assignments</h1>
             </div>
-
-            {loadingC ? (
-              <div className="skeleton" style={{height:60}}/>
-            ) : created.length === 0 ? (
-              <div className="col-empty">
-                <PlusSquare size={28} style={{opacity:0.2}}/>
-                <p>No graded assignments yet for this course.</p>
-                <Link to="/create" className="btn btn-teal btn-sm" style={{marginTop:4}}><PlusSquare size={12}/> Create one</Link>
-              </div>
-            ) : (
-              created.map((cw, i) => (
-                <CwCard key={cw.id} cw={cw} isCreated={true} courseId={courseId}
-                  expanded={expanded===cw.id} onToggle={()=>setExpanded(expanded===cw.id?null:cw.id)}
-                  job={grading[cw.id]} form={getForm(cw)} onFormChange={(k,v)=>updateForm(cw.id,k,v)}
-                  onStartJob={()=>startJob(cw)} onSync={()=>syncMarks(cw.id)}
-                  syncing={syncing[cw.id]} syncResult={syncResult[cw.id]}
-                  animDelay={i*0.04}
-                />
-              ))
-            )}
           </div>
+          <button className="btn btn-cyan btn-sm" onClick={() => nav('/create')}>
+            <PlusCircle size={14}/> New Assignment
+          </button>
+        </div>
+      </motion.div>
 
-          {/* ── RIGHT: Not Yet Graded ─────────────────────────────── */}
-          <div className="col">
-            <div className="col-header purple">
-              <div className="col-h-left">
-                <div className="col-dot" style={{background:'var(--accent-2)'}}/>
-                <span className="col-title">Not Yet Graded</span>
-                <span className="badge badge-purple">{loadingI?'…':imported.length}</span>
-              </div>
-              <div style={{display:'flex',alignItems:'center',gap:5,fontSize:10,color:'var(--text-3)'}}>
-                <Info size={11}/> Grade only
-              </div>
+      {/* Info cards */}
+      <motion.div
+        style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,marginBottom:28}}
+        initial={{opacity:0,y:20}} animate={{opacity:1,y:0}} transition={{duration:0.6,delay:0.2}}
+      >
+        <div style={{padding:'16px 20px',borderRadius:14,background:'rgba(6,182,212,0.05)',border:'1px solid rgba(6,182,212,0.2)'}}>
+          <div style={{display:'flex',gap:12}}>
+            <TrendingUp size={18} color="#22d3ee" style={{flexShrink:0,marginTop:2}}/>
+            <div>
+              <h3 style={{color:'#22d3ee',fontSize:14,fontWeight:500,marginBottom:6}}>Graded via AutoGrade.ai</h3>
+              <p style={{fontSize:12,color:'#64748b',lineHeight:1.6}}>Assignments graded through AutoGrade.ai at least once. These support the Sync to Classroom feature.</p>
             </div>
-
-            {loadingI ? (
-              <div className="skeleton" style={{height:60}}/>
-            ) : imported.length === 0 ? (
-              <div className="col-empty">
-                <BarChart2 size={28} style={{opacity:0.2}}/>
-                <p>No ungraded assignments found.</p>
-              </div>
-            ) : (
-              imported.map((cw, i) => (
-                <CwCard key={cw.id} cw={cw} isCreated={false} courseId={courseId}
-                  expanded={expanded===cw.id} onToggle={()=>setExpanded(expanded===cw.id?null:cw.id)}
-                  job={grading[cw.id]} form={getForm(cw)} onFormChange={(k,v)=>updateForm(cw.id,k,v)}
-                  onStartJob={()=>startJob(cw)}
-                  animDelay={i*0.04}
-                />
-              ))
-            )}
           </div>
         </div>
-      )}
+        <div style={{padding:'16px 20px',borderRadius:14,background:'rgba(139,92,246,0.05)',border:'1px solid rgba(139,92,246,0.2)'}}>
+          <div style={{display:'flex',gap:12}}>
+            <Clock size={18} color="#a78bfa" style={{flexShrink:0,marginTop:2}}/>
+            <div>
+              <h3 style={{color:'#a78bfa',fontSize:14,fontWeight:500,marginBottom:6}}>Not Yet Graded</h3>
+              <p style={{fontSize:12,color:'#64748b',lineHeight:1.6}}>Assignments from Classroom not yet graded via AutoGrade.ai. Grade them first to unlock sync.</p>
+            </div>
+          </div>
+        </div>
+      </motion.div>
 
-      <style>{`
-        .legend{display:flex;align-items:flex-start;gap:0;background:var(--bg-1);border:1px solid var(--border);border-radius:var(--radius);padding:16px 20px;margin-bottom:20px;}
-        .leg-item{display:flex;align-items:flex-start;gap:12px;flex:1;}
-        .leg-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;margin-top:4px;}
-        .leg-title{font-size:13px;font-weight:600;margin-bottom:3px;}
-        .leg-sub{font-size:11px;color:var(--text-3);line-height:1.6;}
-        .leg-div{width:1px;background:var(--border);margin:0 20px;}
-        .two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start;}
-        .col{display:flex;flex-direction:column;gap:8px;}
-        .col-header{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-radius:var(--radius-sm);margin-bottom:4px;}
-        .col-header.teal{background:var(--teal-bg);border:1px solid rgba(45,212,191,0.2);}
-        .col-header.purple{background:var(--accent-glow);border:1px solid rgba(124,106,247,0.2);}
-        .col-h-left{display:flex;align-items:center;gap:8px;}
-        .col-dot{width:8px;height:8px;border-radius:50%;}
-        .col-title{font-size:13px;font-weight:600;}
-        .col-empty{display:flex;flex-direction:column;align-items:center;gap:8px;padding:32px 16px;color:var(--text-3);text-align:center;font-size:12px;background:var(--bg-1);border:1px dashed var(--border);border-radius:var(--radius);}
-        @media(max-width:820px){.two-col{grid-template-columns:1fr;}}
-      `}</style>
+      {/* Sections */}
+      <motion.div
+        style={{display:'flex',flexDirection:'column',gap:28}}
+        initial={{opacity:0,y:20}} animate={{opacity:1,y:0}} transition={{duration:0.6,delay:0.3}}
+      >
+        {/* Graded section */}
+        <Section
+          title="Graded via AutoGrade.ai" count={loadingC?'…':created.length}
+          dotColor="#22d3ee" headerBg="rgba(16,185,129,0.05)" headerBorder="rgba(16,185,129,0.1)"
+          titleColor="#34d399" badge="Sync enabled" badgeCls="badge-emerald"
+          loading={loadingC}
+          emptyMsg="No graded assignments yet for this course."
+          items={created} isCreated={true}
+          expanded={expanded} onToggle={id=>setExpanded(expanded===id?null:id)}
+          grading={grading} forms={forms} getForm={getForm} updateForm={updateForm}
+          onStartJob={startJob} onSync={syncMarks} syncing={syncing} syncResult={syncResult}
+          courseId={courseId}
+        />
+
+        {/* Not graded section */}
+        <Section
+          title="Not Yet Graded" count={loadingI?'…':imported.length}
+          dotColor="#94a3b8" headerBg="rgba(255,255,255,0.02)" headerBorder="rgba(255,255,255,0.06)"
+          titleColor="#94a3b8" infoLabel="Grade only"
+          loading={loadingI}
+          emptyMsg="No ungraded assignments found."
+          items={imported} isCreated={false}
+          expanded={expanded} onToggle={id=>setExpanded(expanded===id?null:id)}
+          grading={grading} forms={forms} getForm={getForm} updateForm={updateForm}
+          onStartJob={startJob}
+          courseId={courseId}
+        />
+      </motion.div>
     </div>
   );
 }
 
-// ── Individual coursework card ──────────────────────────────────────────────
-function CwCard({ cw, isCreated, courseId, expanded, onToggle, job, form, onFormChange, onStartJob, onSync, syncing, syncResult, animDelay }) {
+function Section({ title, count, dotColor, headerBg, headerBorder, titleColor, badge, badgeCls, infoLabel, loading, emptyMsg, items, isCreated, expanded, onToggle, grading, getForm, updateForm, onStartJob, onSync, syncing, syncResult, courseId }) {
+  return (
+    <div style={{display:'flex',flexDirection:'column',gap:10}}>
+      {/* Section header */}
+      <div style={{display:'flex',alignItems:'center',gap:12,padding:'14px 18px',borderRadius:12,background:headerBg,border:`1px solid ${headerBorder}`}}>
+        <div style={{width:8,height:8,borderRadius:'50%',background:dotColor,flexShrink:0}}/>
+        <h2 style={{fontSize:16,fontWeight:500,color:titleColor,flex:1}}>{title}</h2>
+        <span className="badge badge-slate" style={{fontSize:11}}>{count}</span>
+        {badge && <span className={`badge ${badgeCls}`} style={{fontSize:10}}>{badge}</span>}
+        {infoLabel && <div style={{display:'flex',alignItems:'center',gap:4,fontSize:11,color:'#475569'}}><Info size={11}/>{infoLabel}</div>}
+      </div>
+
+      {loading ? (
+        [1,2].map(i=><div key={i} className="skeleton" style={{height:64}}/>)
+      ) : items.length===0 ? (
+        <div className="glass-card" style={{padding:24,textAlign:'center',fontSize:13,color:'#475569',borderStyle:'dashed'}}>{emptyMsg}</div>
+      ) : (
+        items.map((cw, i) => (
+          <AssignmentCard key={cw.id} cw={cw} isCreated={isCreated}
+            expanded={expanded===cw.id} onToggle={()=>onToggle(cw.id)}
+            job={grading[cw.id]} form={getForm(cw)}
+            onFormChange={(k,v)=>updateForm(cw.id,k,v)}
+            onStartJob={()=>onStartJob(cw)} onSync={onSync}
+            syncing={syncing?.[cw.id]} syncResult={syncResult?.[cw.id]}
+            courseId={courseId} animDelay={i*0.05}
+          />
+        ))
+      )}
+    </div>
+  );
+}
+
+function AssignmentCard({ cw, isCreated, expanded, onToggle, job, form, onFormChange, onStartJob, onSync, syncing, syncResult, courseId, animDelay }) {
   const fileRef = useRef();
-  const accentColor = isCreated ? 'var(--teal)' : 'var(--accent-2)';
-  const materialCount = (cw.materials||[]).filter(m=>m?.driveFile).length;
+  const accentColor = isCreated ? '#22d3ee' : '#a78bfa';
 
   return (
-    <div className="card cw-card" style={{animationDelay:`${animDelay}s`}}>
-      {/* Header row */}
-      <div className="cw-h" onClick={onToggle}>
-        <div className="cw-hl">
-          <div className="cw-dot" style={{background:accentColor}}/>
-          <div>
-            <div className="cw-title">{cw.title}</div>
-            <div className="cw-meta">
-              {cw.maxPoints!=null&&<span>{cw.maxPoints} pts</span>}
-              {cw.dueDate&&<span>Due {fmtDate(cw.dueDate)}</span>}
-              <span className="mono" style={{fontSize:10,color:'var(--text-3)'}}>{cw.id}</span>
-            </div>
+    <motion.div
+      className="glass-card"
+      style={{overflow:'hidden',transition:'border-color 0.2s',borderColor:expanded?(isCreated?'rgba(6,182,212,0.2)':'rgba(139,92,246,0.1)'):'rgba(255,255,255,0.06)'}}
+      initial={{opacity:0,x:-20}} animate={{opacity:1,x:0}} transition={{duration:0.5,delay:animDelay}}
+    >
+      {/* Row header */}
+      <div style={{display:'flex',alignItems:'center',gap:14,padding:'18px 20px',cursor:'pointer'}} onClick={onToggle}>
+        <div style={{width:8,height:8,borderRadius:'50%',background:accentColor,flexShrink:0}}/>
+        <div style={{flex:1,minWidth:0}}>
+          <div style={{fontSize:15,fontWeight:500,marginBottom:3}}>{cw.title}</div>
+          <div style={{fontSize:11,color:'#475569',display:'flex',gap:8,flexWrap:'wrap'}}>
+            {cw.maxPoints!=null && <span>{cw.maxPoints} pts</span>}
+            {cw.dueDate && <span>· Due {fmtDate(cw.dueDate)}</span>}
+            <span style={{fontFamily:'monospace'}}>· {cw.id}</span>
           </div>
         </div>
-        <div className="cw-hr">
+        <div style={{display:'flex',alignItems:'center',gap:8,flexShrink:0}}>
           {job && <JobBadge state={job.state} progress={job.progress}/>}
-          <Link to={`/grades/${courseId}/${cw.id}`} className="btn btn-ghost btn-sm" onClick={e=>e.stopPropagation()}>
-            <BarChart2 size={12}/> Results
+          <Link to={`/grades/${courseId}/${cw.id}`} onClick={e=>e.stopPropagation()}
+            style={{display:'flex',alignItems:'center',gap:5,padding:'6px 12px',borderRadius:8,background:'rgba(255,255,255,0.04)',border:'1px solid rgba(255,255,255,0.08)',color:'#94a3b8',fontSize:12,textDecoration:'none'}}>
+            <BarChart3 size={13}/> Results
           </Link>
-          {expanded ? <ChevronUp size={14} style={{color:'var(--text-3)'}}/> : <ChevronDown size={14} style={{color:'var(--text-3)'}}/>}
+          {expanded ? <ChevronUp size={15} color="#475569"/> : <ChevronDown size={15} color="#475569"/>}
         </div>
       </div>
 
       {/* Expanded */}
-      {expanded && (
-        <div className="cw-panel fade-in">
-          <div className="divider"/>
+      <AnimatePresence>
+        {expanded && (
+          <motion.div
+            initial={{opacity:0,height:0}} animate={{opacity:1,height:'auto'}} exit={{opacity:0,height:0}}
+            transition={{duration:0.3}}
+            style={{borderTop:'1px solid rgba(255,255,255,0.06)'}}
+          >
+            <div style={{padding:'20px 20px 24px'}}>
+              {cw.description && <p style={{fontSize:13,color:'#64748b',lineHeight:1.65,marginBottom:20}}>{cw.description}</p>}
 
-          {cw.description && <p className="cw-desc">{cw.description}</p>}
+              {/* Job progress */}
+              {job && (job.state==='active'||job.state==='queued') && <JobProgress job={job}/>}
 
-          {/* Active job progress */}
-          {job && (job.state==='active'||job.state==='queued') && <JobProgress job={job}/>}
-
-          {/* Grading form */}
-          {(!job || job.state==='failed') && (
-            <div className="gf">
-              <div className="gf-title"><Zap size={13}/> Configure AI Grading</div>
-
-              {/* Classroom info chips */}
-              <div className="chips">
-                <Chip label="Max Score" value={cw.maxPoints!=null?`${cw.maxPoints} pts`:'Not set'} src="Classroom"/>
-                <Chip label="Question Paper" value={materialCount>0?`✓ ${materialCount} file${materialCount>1?'s':''} detected`:'No Drive files'} src={materialCount>0?'Classroom':null}/>
-              </div>
-
-              <div className="gf-grid">
-                <div className="input-group" style={{gridColumn:'1/-1'}}>
-                  <label className="label">Rubric / Instructions *</label>
-                  <textarea className="input" rows={3} placeholder="Describe grading criteria, what a perfect answer includes, key points to check…" value={form.rubricContext} onChange={e=>onFormChange('rubricContext',e.target.value)}/>
-                </div>
-                <div className="input-group">
-                  <label className="label">Strictness</label>
-                  <select className="input" value={form.strictness} onChange={e=>onFormChange('strictness',e.target.value)}>
-                    <option value="Easy">Easy</option>
-                    <option value="Medium">Medium</option>
-                    <option value="Hard">Hard</option>
-                  </select>
-                </div>
-                <div className="input-group">
-                  <label className="label">Answer Key <span style={{fontWeight:400,textTransform:'none',color:'var(--text-3)'}}>optional</span></label>
-                  <div className="fdrop" onClick={()=>fileRef.current.click()}>
-                    <input ref={fileRef} type="file" accept=".pdf,.doc,.docx,.txt" style={{display:'none'}} onChange={e=>onFormChange('file',e.target.files[0])}/>
-                    <Upload size={13} style={{color:'var(--text-3)',flexShrink:0}}/>
-                    <span style={{fontSize:12,color:form.file?'var(--text)':'var(--text-2)'}}>{form.file?form.file.name:'Upload reference file'}</span>
+              {/* Grading form */}
+              {(!job || job.state==='failed') && (
+                <div style={{background:'rgba(255,255,255,0.02)',borderRadius:12,padding:20}}>
+                  <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:16,color:isCreated?'#22d3ee':'#a78bfa',fontSize:15,fontWeight:500}}>
+                    <Sparkles size={16}/> Configure AI Grading
                   </div>
-                </div>
-              </div>
 
-              <div style={{display:'flex',justifyContent:'flex-end',marginTop:14}}>
-                <button className="btn btn-primary btn-sm" onClick={onStartJob}>
-                  <Zap size={12}/> Start AI Grading
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Completed state */}
-          {job?.state==='completed' && (
-            <div className="done-section">
-              <div className="done-summary">
-                <CheckCircle size={15} style={{color:'var(--green)',flexShrink:0}}/>
-                <div>
-                  <div style={{fontWeight:600,fontSize:13}}>Grading complete</div>
-                  <div style={{fontSize:11,color:'var(--text-3)',marginTop:1}}>
-                    {job.result?.gradedSubmissions??0} submissions · {job.result?.gradedAttachments??0} graded · {job.result?.failedAttachments??0} failed
+                  {/* Classroom info */}
+                  <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:16}}>
+                    <InfoChip label="Max Score" value={cw.maxPoints!=null?`${cw.maxPoints} pts`:'Not set'} src="Classroom"/>
+                    <InfoChip label="Question Paper" value={(()=>{const n=(cw.materials||[]).filter(m=>m?.driveFile).length;return n>0?`✓ ${n} file${n>1?'s':''} detected`:'No Drive files';})()} src={(cw.materials||[]).filter(m=>m?.driveFile).length>0?'Classroom':null}/>
+                    <InfoChip label="Pts" value={`${form.maxScore}`}/>
                   </div>
-                </div>
-                <Link to={`/grades/${courseId}/${cw.id}`} className="btn btn-secondary btn-sm" style={{marginLeft:'auto'}}>
-                  <BarChart2 size={11}/> Results
-                </Link>
-              </div>
 
-              {/* Sync block — ONLY for created coursework */}
-              {isCreated ? (
-                <div className="sync-block">
-                  <div className="sync-bl">
-                    <Send size={14} style={{color:'var(--teal)',flexShrink:0}}/>
+                  <div style={{display:'flex',flexDirection:'column',gap:14}}>
+                    {/* Rubric */}
                     <div>
-                      <div style={{fontSize:12,fontWeight:600}}>Sync grades to Google Classroom</div>
-                      <div style={{fontSize:11,color:'var(--text-3)',marginTop:2}}>Writes AI scores as assignedGrade on each student submission.</div>
+                      <label className="form-label">RUBRIC / INSTRUCTIONS <span style={{color:'#ef4444'}}>*</span></label>
+                      <textarea
+                        className="form-input"
+                        rows={4}
+                        placeholder="Describe grading criteria, what a perfect answer includes, key points to check..."
+                        value={form.rubricContext}
+                        onChange={e=>onFormChange('rubricContext',e.target.value)}
+                      />
+                    </div>
+                    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14}}>
+                      {/* Strictness */}
+                      <div>
+                        <label className="form-label">STRICTNESS <span style={{fontWeight:400,textTransform:'none',color:'#334155'}}>optional</span></label>
+                        <select className="form-input" style={{height:44}} value={form.strictness} onChange={e=>onFormChange('strictness',e.target.value)}>
+                          <option value="Easy">Easy</option>
+                          <option value="Medium">Medium</option>
+                          <option value="Hard">Hard</option>
+                        </select>
+                      </div>
+                      {/* Answer key */}
+                      <div>
+                        <label className="form-label">ANSWER KEY <span style={{fontWeight:400,textTransform:'none',color:'#334155'}}>optional</span></label>
+                        <div
+                          style={{display:'flex',alignItems:'center',gap:10,height:44,padding:'0 14px',borderRadius:10,background:'rgba(255,255,255,0.03)',border:'1px solid rgba(255,255,255,0.08)',cursor:'pointer',transition:'border-color 0.2s'}}
+                          onClick={()=>fileRef.current.click()}
+                          onMouseEnter={e=>e.currentTarget.style.borderColor='rgba(16,185,129,0.4)'}
+                          onMouseLeave={e=>e.currentTarget.style.borderColor='rgba(255,255,255,0.08)'}
+                        >
+                          <input ref={fileRef} type="file" accept=".pdf,.doc,.docx,.txt" style={{display:'none'}} onChange={e=>onFormChange('file',e.target.files[0])}/>
+                          <Upload size={14} color="#475569"/>
+                          <span style={{fontSize:13,color:form.file?'#f1f5f9':'#334155',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+                            {form.file ? form.file.name : 'Upload answer key'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    <div style={{display:'flex',justifyContent:'flex-end',paddingTop:4}}>
+                      <button className="btn btn-emerald" onClick={onStartJob}>
+                        <Sparkles size={14}/> Grade it Now
+                      </button>
                     </div>
                   </div>
-                  <button className="btn btn-teal btn-sm" onClick={onSync} disabled={syncing}>
-                    {syncing?<><span className="spinner" style={{width:12,height:12}}/> Syncing…</>:<><Send size={11}/> Sync</>}
-                  </button>
-                </div>
-              ) : (
-                <div className="no-sync">
-                  <Info size={12} style={{flexShrink:0}}/>
-                  <span>This assignment hasn't been graded via AutoGrade.ai yet. Start a grading job above — once complete, sync will be available.</span>
                 </div>
               )}
 
-              {/* Sync result */}
-              {syncResult && (
-                <div className="sr-box">
-                  <div className="sr-row"><span>Synced</span><strong style={{color:'var(--green)'}}>{syncResult.patchedCount}</strong></div>
-                  <div className="sr-row"><span>Missing</span><strong style={{color:'var(--yellow)'}}>{syncResult.missingSubmissionCount}</strong></div>
-                  <div className="sr-row"><span>Failed</span><strong style={{color:'var(--red)'}}>{syncResult.failedCount}</strong></div>
-                  {syncResult.failures?.length>0 && (
-                    <details style={{marginTop:6}}>
-                      <summary style={{fontSize:11,color:'var(--text-3)',cursor:'pointer'}}>Show failures</summary>
-                      <div style={{marginTop:5,display:'flex',flexDirection:'column',gap:3}}>
-                        {syncResult.failures.map((f,i)=><div key={i} className="mono" style={{fontSize:10,color:'var(--red)'}}>{f.studentId} — {f.reason}</div>)}
+              {/* Completed */}
+              {job?.state==='completed' && (
+                <div style={{display:'flex',flexDirection:'column',gap:12}}>
+                  <div style={{display:'flex',alignItems:'center',gap:12,padding:'14px 16px',borderRadius:12,background:'rgba(16,185,129,0.05)',border:'1px solid rgba(16,185,129,0.15)'}}>
+                    <CheckCircle size={16} color="#34d399" style={{flexShrink:0}}/>
+                    <div style={{flex:1}}>
+                      <div style={{fontSize:13,fontWeight:500}}>Grading complete</div>
+                      <div style={{fontSize:11,color:'#475569',marginTop:2}}>
+                        {job.result?.gradedSubmissions??0} submissions · {job.result?.gradedAttachments??0} graded · {job.result?.failedAttachments??0} failed
                       </div>
-                    </details>
+                    </div>
+                    <Link to={`/grades/${courseId}/${cw.id}`} className="btn btn-outline btn-sm">
+                      <BarChart3 size={12}/> Results
+                    </Link>
+                  </div>
+
+                  {isCreated ? (
+                    <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:14,padding:'14px 16px',borderRadius:12,background:'rgba(6,182,212,0.05)',border:'1px solid rgba(6,182,212,0.2)'}}>
+                      <div style={{display:'flex',alignItems:'flex-start',gap:10,flex:1}}>
+                        <Send size={15} color="#22d3ee" style={{flexShrink:0,marginTop:2}}/>
+                        <div>
+                          <div style={{fontSize:13,fontWeight:500,marginBottom:3}}>Sync grades to Google Classroom</div>
+                          <div style={{fontSize:11,color:'#64748b'}}>Writes AI scores as assignedGrade on each student submission.</div>
+                        </div>
+                      </div>
+                      <button className="btn btn-sync btn-sm" onClick={()=>onSync(cw.id)} disabled={syncing}>
+                        {syncing ? <><span className="spinner" style={{width:12,height:12}}/> Syncing…</> : <><Send size={12}/> Sync</>}
+                      </button>
+                    </div>
+                  ) : (
+                    <div style={{display:'flex',alignItems:'flex-start',gap:8,padding:'10px 14px',borderRadius:10,background:'rgba(255,255,255,0.02)',border:'1px solid rgba(255,255,255,0.06)',fontSize:12,color:'#475569'}}>
+                      <Info size={12} style={{flexShrink:0,marginTop:2}}/>
+                      <span>Sync is only available for assignments graded via AutoGrade.ai. This assignment hasn't completed grading yet.</span>
+                    </div>
+                  )}
+
+                  {syncResult && (
+                    <div style={{background:'rgba(255,255,255,0.02)',borderRadius:10,border:'1px solid rgba(255,255,255,0.06)',padding:'14px 16px',display:'flex',flexDirection:'column',gap:8}}>
+                      {[
+                        {label:'Synced',    val:syncResult.patchedCount,           color:'#34d399'},
+                        {label:'Missing',   val:syncResult.missingSubmissionCount,  color:'#facc15'},
+                        {label:'Failed',    val:syncResult.failedCount,             color:'#f87171'},
+                      ].map(r=>(
+                        <div key={r.label} style={{display:'flex',justifyContent:'space-between',fontSize:13}}>
+                          <span style={{color:'#64748b'}}>{r.label}</span>
+                          <strong style={{color:r.color}}>{r.val}</strong>
+                        </div>
+                      ))}
+                    </div>
                   )}
                 </div>
               )}
             </div>
-          )}
-        </div>
-      )}
-
-      <style>{`
-        .cw-card{overflow:hidden;}
-        .cw-h{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;cursor:pointer;transition:background 0.14s;}
-        .cw-h:hover{background:rgba(255,255,255,0.018);}
-        .cw-hl{display:flex;align-items:center;gap:11px;flex:1;min-width:0;}
-        .cw-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
-        .cw-title{font-size:13px;font-weight:600;margin-bottom:2px;}
-        .cw-meta{display:flex;gap:8px;font-size:10px;color:var(--text-3);flex-wrap:wrap;}
-        .cw-hr{display:flex;align-items:center;gap:7px;flex-shrink:0;}
-        .cw-panel{padding:0 16px 16px;}
-        .cw-desc{font-size:12px;color:var(--text-2);line-height:1.65;margin:12px 0;}
-        .gf{background:var(--bg-2);border-radius:var(--radius-sm);padding:14px;margin-top:12px;}
-        .gf-title{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600;margin-bottom:12px;}
-        .chips{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:12px;}
-        .gf-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
-        .fdrop{display:flex;align-items:center;gap:8px;padding:9px 11px;background:var(--bg);border:1px dashed var(--border);border-radius:var(--radius-sm);cursor:pointer;transition:border-color 0.18s;}
-        .fdrop:hover{border-color:var(--accent);}
-        .done-section{margin-top:12px;display:flex;flex-direction:column;gap:8px;}
-        .done-summary{display:flex;align-items:center;gap:10px;padding:12px 14px;background:var(--green-bg);border:1px solid rgba(52,211,153,0.2);border-radius:var(--radius-sm);}
-        .sync-block{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;background:var(--teal-bg);border:1px solid rgba(45,212,191,0.2);border-radius:var(--radius-sm);}
-        .sync-bl{display:flex;align-items:flex-start;gap:10px;flex:1;}
-        .no-sync{display:flex;align-items:flex-start;gap:8px;padding:10px 13px;background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-sm);font-size:11px;color:var(--text-3);line-height:1.6;}
-        .sr-box{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px 14px;display:flex;flex-direction:column;gap:7px;}
-        .sr-row{display:flex;justify-content:space-between;font-size:12px;}
-        .sr-row span{color:var(--text-2);}
-      `}</style>
-    </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
   );
 }
 
-function Chip({ label, value, src }) {
+function InfoChip({ label, value, src }) {
   return (
-    <div style={{display:'flex',alignItems:'center',gap:6,padding:'5px 10px',background:'var(--bg-3)',border:'1px solid var(--border)',borderRadius:'var(--radius-sm)',fontSize:11}}>
-      <span style={{color:'var(--text-3)'}}>{label}:</span>
+    <div style={{display:'flex',alignItems:'center',gap:6,padding:'5px 10px',background:'rgba(255,255,255,0.03)',border:'1px solid rgba(255,255,255,0.07)',borderRadius:8,fontSize:11}}>
+      <span style={{color:'#475569'}}>{label}:</span>
       <span style={{fontWeight:500}}>{value}</span>
-      {src && <span style={{fontSize:9,fontFamily:'DM Mono,monospace',color:'var(--accent-2)',background:'var(--accent-glow)',padding:'1px 5px',borderRadius:99}}>{src}</span>}
+      {src && <span style={{fontSize:9,color:'#22d3ee',background:'rgba(6,182,212,0.1)',padding:'1px 5px',borderRadius:99}}>{src}</span>}
     </div>
   );
 }
 
 function JobBadge({ state, progress }) {
   const M = {
-    queued:    { cls:'badge-yellow', icon:<Clock size={10}/>,  label:'Queued' },
-    active:    { cls:'badge-blue',   icon:<Loader size={10} className="spin"/>, label:`${progress?.processed||0}/${progress?.total||'?'}` },
-    completed: { cls:'badge-green',  icon:<CheckCircle size={10}/>, label:'Done' },
-    failed:    { cls:'badge-red',    icon:<XCircle size={10}/>, label:'Failed' },
+    queued:    {bg:'rgba(234,179,8,0.1)',   color:'#facc15', label:'Queued',  Icon:Clock},
+    active:    {bg:'rgba(96,165,250,0.1)',  color:'#60a5fa', label:`${progress?.processed||0}/${progress?.total||'?'}`, Icon:Loader},
+    completed: {bg:'rgba(34,197,94,0.1)',   color:'#4ade80', label:'Done',    Icon:CheckCircle},
+    failed:    {bg:'rgba(239,68,68,0.1)',   color:'#f87171', label:'Failed',  Icon:XCircle},
   };
   const b = M[state]||M.queued;
-  return <span className={`badge ${b.cls}`}>{b.icon}{b.label}</span>;
+  return (
+    <span style={{display:'inline-flex',alignItems:'center',gap:4,padding:'3px 9px',borderRadius:99,background:b.bg,color:b.color,fontSize:11,fontWeight:500}}>
+      <b.Icon size={10} className={state==='active'?'spin-anim':''}/>{b.label}
+    </span>
+  );
 }
 
 function JobProgress({ job }) {
   const { progress={}, state } = job;
   const pct = progress.total>0 ? Math.round((progress.processed/progress.total)*100) : 0;
   return (
-    <div style={{background:'var(--bg-2)',borderRadius:'var(--radius-sm)',padding:14,marginTop:12}}>
-      <div style={{display:'flex',justifyContent:'space-between',marginBottom:7,fontSize:12}}>
-        <span style={{color:'var(--text-2)'}}>{state==='queued'?'Queued — waiting to start…':'Grading submissions…'}</span>
-        <span className="mono" style={{color:'var(--accent-2)'}}>{pct}%</span>
+    <div style={{background:'rgba(255,255,255,0.02)',borderRadius:12,padding:16,marginBottom:16}}>
+      <div style={{display:'flex',justifyContent:'space-between',marginBottom:8,fontSize:13}}>
+        <span style={{color:'#64748b'}}>{state==='queued'?'Queued — waiting to start…':'Grading submissions…'}</span>
+        <span style={{color:'#34d399',fontFamily:'monospace'}}>{pct}%</span>
       </div>
-      <div className="progress-track"><div className="progress-fill" style={{width:`${pct}%`}}/></div>
-      {progress.total>0&&<div style={{display:'flex',gap:14,marginTop:6,fontSize:10,color:'var(--text-3)'}}><span>{progress.processed} processed</span><span>{progress.failed} failed</span><span>{progress.total} total</span></div>}
+      <div className="score-bar">
+        <div className="score-fill" style={{width:`${pct}%`,background:'linear-gradient(90deg,#059669,#34d399)'}}/>
+      </div>
+      {progress.total>0 && (
+        <div style={{display:'flex',gap:14,marginTop:6,fontSize:11,color:'#475569'}}>
+          <span>{progress.processed} processed</span>
+          <span>{progress.failed} failed</span>
+          <span>{progress.total} total</span>
+        </div>
+      )}
     </div>
   );
 }

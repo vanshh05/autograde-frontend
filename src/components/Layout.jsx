@@ -1,72 +1,93 @@
+import { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../AuthContext';
-import { LayoutDashboard, BookOpen, GraduationCap, LogOut, ChevronRight, PlusSquare } from 'lucide-react';
+import { LayoutDashboard, BookOpen, PlusCircle, BarChart3, LogOut, Menu, X, ChevronRight, Check } from 'lucide-react';
 
 const NAV = [
-  { to:'/dashboard', icon:LayoutDashboard, label:'Dashboard' },
-  { to:'/courses',   icon:BookOpen,        label:'Courses'   },
-  { to:'/create',    icon:PlusSquare,      label:'Create Assignment', accent:true },
-  { to:'/grades',    icon:GraduationCap,   label:'Results'   },
+  { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard',         id: 'dashboard' },
+  { to: '/courses',   icon: BookOpen,        label: 'Courses',            id: 'courses'   },
+  { to: '/create',    icon: PlusCircle,      label: 'Create Assignment',  id: 'create'    },
+  { to: '/grades',    icon: BarChart3,       label: 'Results',            id: 'results'   },
 ];
 
-export default function Layout({ children }) {
-  const { user, logout } = useAuth();
+function SidebarContent({ user, logout, onNavClick, activeId }) {
   const nav = useNavigate();
   const initial = (user?.fullName || user?.email || 'U')[0].toUpperCase();
 
   return (
-    <div className="layout">
-      <aside className="sidebar">
-        <div>
-          <div className="sb-brand">
-            <span className="sb-logo">⚡</span>
-            <span className="sb-name">AutoGrade<span style={{color:'var(--accent-2)'}}>.</span>ai</span>
-          </div>
-          <nav className="sb-nav">
-            {NAV.map(({ to, icon:Icon, label, accent }) => (
-              <NavLink key={to} to={to} className={({ isActive }) => `sb-link ${isActive?'active':''} ${accent?'accent-link':''}`}>
-                <Icon size={15}/>
-                <span>{label}</span>
-                <ChevronRight size={12} className="sb-arr"/>
-              </NavLink>
-            ))}
-          </nav>
+    <>
+      {/* Logo */}
+      <div className="sb-logo">
+        <div className="sb-logo-icon">
+          <Check size={22} color="#34d399" strokeWidth={3}/>
         </div>
-        <div className="sb-user">
-          <div className="sb-avatar">{initial}</div>
-          <div className="sb-uinfo">
-            <div className="sb-uname">{user?.fullName||'Teacher'}</div>
-            <div className="sb-uemail">{user?.email}</div>
-          </div>
-          <button className="btn btn-ghost btn-icon btn-sm" onClick={()=>{logout();nav('/');}} title="Sign out">
-            <LogOut size={13}/>
-          </button>
+        <span className="sb-logo-text">AutoGrade<span>.ai</span></span>
+      </div>
+
+      {/* Nav */}
+      <nav className="sb-nav">
+        {NAV.map(({ to, icon: Icon, label, id }) => (
+          <NavLink
+            key={to} to={to}
+            className={({ isActive }) => `sb-link ${isActive ? 'active' : ''}`}
+            onClick={onNavClick}
+          >
+            <Icon size={20}/>
+            <span>{label}</span>
+            {id === 'courses' || id === 'results' ? <ChevronRight size={14} className="sb-link-arrow"/> : null}
+          </NavLink>
+        ))}
+      </nav>
+
+      {/* User */}
+      <div className="sb-user">
+        <div className="sb-user-avatar">{initial}</div>
+        <div style={{flex:1,minWidth:0}}>
+          <div className="sb-user-name">{user?.fullName || 'Teacher'}</div>
+          <div className="sb-user-email">{user?.email}</div>
         </div>
+        <button
+          className="btn btn-ghost btn-icon btn-sm"
+          style={{padding:6}}
+          onClick={() => { logout(); nav('/'); }}
+          title="Sign out"
+        >
+          <LogOut size={15} color="#64748b"/>
+        </button>
+      </div>
+    </>
+  );
+}
+
+export default function Layout({ children }) {
+  const { user, logout } = useAuth();
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div className="app-shell">
+      <div className="bg-base"/>
+      <div className="bg-blob-1"/>
+      <div className="bg-blob-2"/>
+
+      {/* Mobile menu button */}
+      <button
+        className="mobile-menu-btn btn btn-outline btn-icon"
+        style={{position:'fixed',top:20,left:20,zIndex:60,width:40,height:40,padding:0,alignItems:'center',justifyContent:'center'}}
+        onClick={() => setOpen(o => !o)}
+      >
+        {open ? <X size={18}/> : <Menu size={18}/>}
+      </button>
+
+      {/* Sidebar */}
+      <aside className={`sidebar ${open ? 'open' : ''}`}>
+        <SidebarContent user={user} logout={logout} onNavClick={() => setOpen(false)}/>
       </aside>
+
+      {/* Mobile overlay */}
+      {open && <div className="sidebar-overlay" onClick={() => setOpen(false)}/>}
+
+      {/* Main */}
       <main className="main-content">{children}</main>
-      <style>{`
-        .layout{display:flex;min-height:100vh;}
-        .sidebar{width:228px;flex-shrink:0;background:var(--bg-1);border-right:1px solid var(--border);display:flex;flex-direction:column;justify-content:space-between;padding:20px 10px;position:sticky;top:0;height:100vh;}
-        .sb-brand{display:flex;align-items:center;gap:9px;padding:4px 10px;margin-bottom:26px;}
-        .sb-logo{font-size:18px;background:var(--accent);width:32px;height:32px;border-radius:7px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
-        .sb-name{font-family:'Syne',sans-serif;font-size:16px;font-weight:700;}
-        .sb-nav{display:flex;flex-direction:column;gap:2px;}
-        .sb-link{display:flex;align-items:center;gap:9px;padding:9px 12px;border-radius:var(--radius-sm);color:var(--text-2);text-decoration:none;font-size:13px;font-weight:500;transition:all 0.14s;}
-        .sb-link:hover{background:var(--bg-2);color:var(--text);}
-        .sb-link.active{background:var(--accent-glow);color:var(--accent-2);}
-        .sb-link.accent-link{color:var(--teal);}
-        .sb-link.accent-link:hover{background:var(--teal-bg);}
-        .sb-link.accent-link.active{background:var(--teal-bg);color:var(--teal);}
-        .sb-arr{margin-left:auto;opacity:0;transition:opacity 0.14s;}
-        .sb-link:hover .sb-arr,.sb-link.active .sb-arr{opacity:1;}
-        .sb-user{display:flex;align-items:center;gap:9px;padding:10px;background:var(--bg-2);border-radius:var(--radius-sm);border:1px solid var(--border);}
-        .sb-avatar{width:30px;height:30px;border-radius:7px;background:var(--accent);display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-size:13px;font-weight:700;flex-shrink:0;}
-        .sb-uinfo{flex:1;min-width:0;}
-        .sb-uname{font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-        .sb-uemail{font-size:10px;color:var(--text-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-        .main-content{flex:1;min-width:0;overflow-y:auto;}
-        @media(max-width:768px){.sidebar{display:none;}}
-      `}</style>
     </div>
   );
 }

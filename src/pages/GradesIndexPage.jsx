@@ -1,112 +1,134 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
+import { TrendingUp, Clock, ArrowRight } from 'lucide-react';
 import { getCourses, getCreatedCourseWork, getNotCreatedCourseWork } from '../api';
-import { BarChart2, ArrowRight, Send } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export default function GradesIndexPage() {
+  const nav = useNavigate();
   const [courses, setCourses] = useState([]);
   const [selected, setSelected] = useState('');
   const [created, setCreated] = useState([]);
   const [notCreated, setNotCreated] = useState([]);
-  const [loadingC, setLoadingC] = useState(false);
   const [loadingCourses, setLoadingCourses] = useState(true);
+  const [loadingCW, setLoadingCW] = useState(false);
 
   useEffect(() => {
-    getCourses().then(d=>setCourses(d.courses||[])).catch(e=>toast.error(e.message)).finally(()=>setLoadingCourses(false));
+    getCourses()
+      .then(d => setCourses(d.courses || []))
+      .catch(e => toast.error(e.message))
+      .finally(() => setLoadingCourses(false));
   }, []);
 
   const handleSelect = async (id) => {
     setSelected(id); setCreated([]); setNotCreated([]);
     if (!id) return;
-    setLoadingC(true);
+    setLoadingCW(true);
     try {
       const [c, n] = await Promise.all([getCreatedCourseWork(id), getNotCreatedCourseWork(id)]);
-      setCreated(c.courseWork||[]); setNotCreated(n.courseWork||[]);
-    } catch(e) { toast.error(e.message); }
-    finally { setLoadingC(false); }
+      setCreated(c.courseWork || []);
+      setNotCreated(n.courseWork || []);
+    } catch (e) { toast.error(e.message); }
+    finally { setLoadingCW(false); }
   };
 
   return (
-    <div className="page" style={{maxWidth:800}}>
-      <div style={{marginBottom:28}}>
-        <p className="page-label">Results</p>
+    <div className="page-wrap">
+      <motion.div style={{marginBottom:32}} initial={{opacity:0,y:-20}} animate={{opacity:1,y:0}} transition={{duration:0.6}}>
+        <p className="page-eyebrow">Results</p>
         <h1 className="page-title">Grade Results</h1>
-        <p className="page-sub">Select a course and assignment to view AI grading results.</p>
-      </div>
+        <p className="page-sub" style={{marginBottom:24}}>Select a course and assignment to view AI grading results.</p>
 
-      <div className="input-group fade-up" style={{marginBottom:24}}>
-        <label className="label">Course</label>
-        <select className="input" value={selected} onChange={e=>handleSelect(e.target.value)} disabled={loadingCourses}>
-          <option value="">— Select a course —</option>
-          {courses.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}
-        </select>
-      </div>
+        {/* Course selector */}
+        <div style={{maxWidth:440}}>
+          <label className="form-label">COURSE</label>
+          <select className="form-input" style={{height:48}} value={selected} onChange={e=>handleSelect(e.target.value)} disabled={loadingCourses}>
+            <option value="">— Select a course —</option>
+            {courses.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+        </div>
+      </motion.div>
 
-      {loadingC && <div style={{display:'flex',alignItems:'center',gap:9,color:'var(--text-3)',fontSize:13}}><span className="spinner"/>Loading assignments…</div>}
-
-      {!loadingC && selected && (created.length>0||notCreated.length>0) && (
-        <div className="gi-cols fade-up">
-          {/* Created */}
-          <div className="gi-col">
-            <div className="gi-ch teal">
-              <Send size={12}/> Graded via AutoGrade.ai
-              <span className="badge badge-teal" style={{marginLeft:'auto'}}>{created.length}</span>
-            </div>
-            {created.length===0 ? (
-              <div className="gi-empty">No graded assignments found.</div>
-            ) : created.map(cw=>(
-              <Link key={cw.id} to={`/grades/${selected}/${cw.id}`} className="card gi-row">
-                <div>
-                  <div className="gi-title">{cw.title}</div>
-                  <div className="gi-meta">{cw.maxPoints!=null&&`${cw.maxPoints} pts · `}<span className="mono">{cw.id}</span></div>
-                </div>
-                <div style={{display:'flex',alignItems:'center',gap:8}}>
-                  <span className="badge badge-teal" style={{fontSize:9}}>Sync</span>
-                  <ArrowRight size={13} style={{color:'var(--teal)'}}/>
-                </div>
-              </Link>
-            ))}
-          </div>
-
-          {/* Not created */}
-          <div className="gi-col">
-            <div className="gi-ch purple">
-              <BarChart2 size={12}/> Not Yet Graded
-              <span className="badge badge-purple" style={{marginLeft:'auto'}}>{notCreated.length}</span>
-            </div>
-            {notCreated.length===0 ? (
-              <div className="gi-empty">No ungraded assignments found.</div>
-            ) : notCreated.map(cw=>(
-              <Link key={cw.id} to={`/grades/${selected}/${cw.id}`} className="card gi-row">
-                <div>
-                  <div className="gi-title">{cw.title}</div>
-                  <div className="gi-meta">{cw.maxPoints!=null&&`${cw.maxPoints} pts · `}<span className="mono">{cw.id}</span></div>
-                </div>
-                <ArrowRight size={13} style={{color:'var(--accent)'}}/>
-              </Link>
-            ))}
-          </div>
+      {loadingCW && (
+        <div style={{display:'flex',alignItems:'center',gap:10,color:'#475569',fontSize:13}}>
+          <span className="spinner"/> Loading assignments…
         </div>
       )}
 
-      {!loadingC && selected && created.length===0 && notCreated.length===0 && (
-        <div className="empty-state fade-up"><BarChart2 size={34} style={{opacity:0.25}}/><p>No assignments found for this course.</p></div>
+      {!loadingCW && selected && (created.length > 0 || notCreated.length > 0) && (
+        <motion.div
+          style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:24}}
+          initial={{opacity:0,y:20}} animate={{opacity:1,y:0}} transition={{duration:0.6,delay:0.2}}
+        >
+          {/* Graded */}
+          <div>
+            <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:12}}>
+              <TrendingUp size={18} color="#22d3ee"/>
+              <h2 style={{fontSize:18,fontWeight:500,color:'#34d399'}}>Graded via AutoGrade.ai</h2>
+              <span className="badge badge-emerald" style={{marginLeft:'auto'}}>{created.length}</span>
+            </div>
+            <div style={{display:'flex',flexDirection:'column',gap:10}}>
+              {created.length === 0 ? (
+                <div className="glass-card" style={{padding:20,textAlign:'center',fontSize:12,color:'#475569'}}>No graded assignments found.</div>
+              ) : created.map((cw, i) => (
+                <motion.div
+                  key={cw.id}
+                  className="glass-card emerald"
+                  style={{padding:'16px 20px',cursor:'pointer'}}
+                  onClick={() => nav(`/grades/${selected}/${cw.id}`)}
+                  initial={{opacity:0,x:-20}} animate={{opacity:1,x:0}} transition={{duration:0.5,delay:0.3+i*0.08}}
+                  whileHover={{scale:1.02}}
+                >
+                  <div style={{display:'flex',alignItems:'center',gap:12}}>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{fontSize:14,fontWeight:500,marginBottom:3,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{cw.title}</div>
+                      <div style={{fontSize:11,color:'#475569'}}>{cw.maxPoints!=null?`${cw.maxPoints} pts · `:''}<span style={{fontFamily:'monospace'}}>{cw.id}</span></div>
+                    </div>
+                    <span className="badge badge-cyan" style={{fontSize:9,flexShrink:0}}>Sync</span>
+                    <ArrowRight size={16} color="#334155" style={{transition:'all 0.2s',flexShrink:0}}/>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          </div>
+
+          {/* Not graded */}
+          <div>
+            <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:12}}>
+              <Clock size={18} color="#a78bfa"/>
+              <h2 style={{fontSize:18,fontWeight:500,color:'#94a3b8'}}>Not Yet Graded</h2>
+              <span className="badge badge-slate" style={{marginLeft:'auto'}}>{notCreated.length}</span>
+            </div>
+            <div style={{display:'flex',flexDirection:'column',gap:10}}>
+              {notCreated.length === 0 ? (
+                <div className="glass-card" style={{padding:20,textAlign:'center',fontSize:12,color:'#475569'}}>No ungraded assignments found.</div>
+              ) : notCreated.map((cw, i) => (
+                <motion.div
+                  key={cw.id}
+                  className="glass-card"
+                  style={{padding:'16px 20px',cursor:'pointer'}}
+                  onClick={() => nav(`/grades/${selected}/${cw.id}`)}
+                  initial={{opacity:0,x:20}} animate={{opacity:1,x:0}} transition={{duration:0.5,delay:0.3+i*0.08}}
+                  whileHover={{scale:1.02}}
+                >
+                  <div style={{display:'flex',alignItems:'center',gap:12}}>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{fontSize:14,fontWeight:500,marginBottom:3,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{cw.title}</div>
+                      <div style={{fontSize:11,color:'#475569'}}>{cw.maxPoints!=null?`${cw.maxPoints} pts · `:''}<span style={{fontFamily:'monospace'}}>{cw.id}</span></div>
+                    </div>
+                    <ArrowRight size={16} color="#334155" style={{flexShrink:0}}/>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          </div>
+        </motion.div>
       )}
 
-      <style>{`
-        .gi-cols{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
-        .gi-col{display:flex;flex-direction:column;gap:7px;}
-        .gi-ch{display:flex;align-items:center;gap:7px;padding:9px 12px;border-radius:var(--radius-sm);font-size:12px;font-weight:600;}
-        .gi-ch.teal{background:var(--teal-bg);color:var(--teal);border:1px solid rgba(45,212,191,0.2);}
-        .gi-ch.purple{background:var(--accent-glow);color:var(--accent-2);border:1px solid rgba(124,106,247,0.2);}
-        .gi-row{display:flex;align-items:center;justify-content:space-between;padding:13px 15px;text-decoration:none;color:inherit;cursor:pointer;transition:all 0.17s;}
-        .gi-row:hover{border-color:var(--accent);transform:translateX(2px);}
-        .gi-title{font-size:13px;font-weight:600;margin-bottom:2px;}
-        .gi-meta{font-size:10px;color:var(--text-3);}
-        .gi-empty{font-size:12px;color:var(--text-3);padding:16px;text-align:center;background:var(--bg-1);border:1px dashed var(--border);border-radius:var(--radius-sm);}
-        @media(max-width:640px){.gi-cols{grid-template-columns:1fr;}}
-      `}</style>
+      {!loadingCW && selected && created.length===0 && notCreated.length===0 && (
+        <div className="glass-card" style={{padding:40,textAlign:'center',color:'#475569',fontSize:13}}>No assignments found for this course.</div>
+      )}
     </div>
   );
 }
