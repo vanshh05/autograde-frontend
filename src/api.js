@@ -11,7 +11,12 @@ async function request(path, options = {}) {
   if (token) headers['Authorization'] = `Bearer ${token}`;
   const res = await fetch(`${BASE}${path}`, { ...options, headers });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.message || `HTTP ${res.status}`);
+  if (!res.ok) {
+    const err = new Error(data.message || `HTTP ${res.status}`);
+    err.status = res.status;
+    err.data = data;
+    throw err;
+  }
   return data;
 }
 
@@ -35,7 +40,7 @@ export const getNotCreatedCourseWork = (courseId) => request(`/api/classroom/cou
 export const createCoursework = (courseId, formData) =>
   request(`/api/classroom/createCoursework/${courseId}`, { method:'POST', body:formData });
 
-// Grading
+// Grading — now returns 402 with quota info when exhausted
 export const startGrading = (courseId, courseWorkId, formData) =>
   request(`/api/classroom/coursework/${courseId}/${courseWorkId}/submissions`, { method:'POST', body:formData });
 
@@ -48,3 +53,14 @@ export const getDashboard = (courseId, courseWorkId) =>
 // Sync marks — PATCH with no body
 export const syncMarksToClassroom = (courseId, courseWorkId) =>
   request(`/api/classroom/coursework/${courseId}/${courseWorkId}/submissions/marks`, { method:'PATCH' });
+
+// Payment (Razorpay)
+export const estimateSpend = (body) =>
+  request('/api/payments/estimate', { method:'POST', body:JSON.stringify(body) });
+
+export const createRazorpayOrder = (body, idempotencyKey) =>
+  request('/api/payments/razorpay/order', {
+    method:'POST',
+    body:JSON.stringify(body),
+    headers: idempotencyKey ? { 'x-idempotency-key': idempotencyKey } : {},
+  });

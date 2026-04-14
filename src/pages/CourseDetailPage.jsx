@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
   ArrowLeft, PlusCircle, TrendingUp, Clock, Sparkles, BarChart3,
-  ChevronDown, ChevronUp, Upload, Info, CheckCircle, XCircle, Send, RefreshCw
+  ChevronDown, ChevronUp, Upload, Info, CheckCircle, XCircle, Send, CreditCard
 } from 'lucide-react';
 import { getCreatedCourseWork, getNotCreatedCourseWork, startGrading, getJobStatus, syncMarksToClassroom } from '../api';
 import toast from 'react-hot-toast';
@@ -17,10 +17,12 @@ export default function CourseDetailPage() {
   const [loadingC, setLoadingC] = useState(true);
   const [loadingI, setLoadingI] = useState(true);
   const [grading, setGrading]   = useState({});
+  const [submitting, setSubmitting] = useState({}); // cwId → bool (prevents double clicks)
   const [syncing, setSyncing]   = useState({});
   const [syncResult, setSyncResult] = useState({});
   const [expanded, setExpanded] = useState(null);
   const [forms, setForms]       = useState({});
+  const [quotaError, setQuotaError] = useState({}); // cwId → quota error info
   const polls = useRef({});
 
   useEffect(() => {
@@ -37,24 +39,51 @@ export default function CourseDetailPage() {
     return '';
   };
 
-  const getForm = (cw) => ({ rubricContext:'', strictness:'Medium', maxScore:cw.maxPoints??100, driveId:extractDriveId(cw), file:null, ...(forms[cw.id]||{}) });
+  const getForm = (cw) => ({
+    rubricContext: '', strictness: 'Medium',
+    maxScore: cw.maxPoints ?? 100,
+    driveId: extractDriveId(cw),
+    file: null,
+    ...(forms[cw.id] || {}),
+  });
+
   const updateForm = (cwId, k, v) => setForms(f => ({ ...f, [cwId]: { ...(f[cwId]||{}), [k]:v } }));
 
   const startJob = async (cw) => {
     const f = getForm(cw);
+
+    // Validate ALL fields mandatory
     if (!f.rubricContext.trim()) return toast.error('Rubric / Instructions are required');
+    if (!f.file) return toast.error('Answer key / Reference file is required');
+    if (!f.strictness) return toast.error('Please select a strictness level');
+
+    // Disable button immediately to prevent double submission
+    setSubmitting(s => ({ ...s, [cw.id]: true }));
+    setQuotaError(q => ({ ...q, [cw.id]: null }));
+
     const fd = new FormData();
     fd.append('rubricContext', f.rubricContext);
     fd.append('strictness', f.strictness);
     fd.append('maxScore', String(f.maxScore));
     if (f.driveId) fd.append('driveId', f.driveId);
-    if (f.file)   fd.append('file', f.file);
+    fd.append('file', f.file);
+
     try {
       const res = await startGrading(courseId, cw.id, fd);
-      toast.success('Grading job queued!');
+      toast.success(`Grading queued! ${res.remainingFreeCopies} free copies remaining.`);
       setGrading(g => ({ ...g, [cw.id]: { jobId:res.jobId, state:'queued', progress:{total:0,processed:0,failed:0} } }));
       pollJob(cw.id, res.jobId);
-    } catch (e) { toast.error(e.message); }
+    } catch (e) {
+      if (e.status === 402) {
+        // Free quota exhausted — show payment prompt
+        setQuotaError(q => ({ ...q, [cw.id]: e.data }));
+        toast.error('Free quota exhausted. Purchase credits to continue.');
+      } else {
+        toast.error(e.message);
+      }
+      // Re-enable button on error so user can fix and retry
+      setSubmitting(s => ({ ...s, [cw.id]: false }));
+    }
   };
 
   const pollJob = (cwId, jobId) => {
@@ -119,22 +148,26 @@ export default function CourseDetailPage() {
       </div>
 
       <div className="fade-up" style={{display:'flex',flexDirection:'column',gap:28,animationDelay:'0.1s'}}>
-        <CwSection title="Graded via AutoGrade.ai" count={loadingC?'…':created.length}
+        <CwSection
+          title="Graded via AutoGrade.ai" count={loadingC?'…':created.length}
           dotColor="#22d3ee" headerBg="rgba(16,185,129,0.05)" headerBorder="rgba(16,185,129,0.1)"
           titleColor="#34d399" badge="Sync enabled" badgeCls="badge-emerald"
           loading={loadingC} items={created} isCreated={true}
           expanded={expanded} onToggle={id=>setExpanded(expanded===id?null:id)}
           grading={grading} getForm={getForm} updateForm={updateForm}
-          onStartJob={startJob} onSync={syncMarks} syncing={syncing} syncResult={syncResult}
+          onStartJob={startJob} submitting={submitting} quotaError={quotaError}
+          onSync={syncMarks} syncing={syncing} syncResult={syncResult}
           courseId={courseId}
         />
-        <CwSection title="Not Yet Graded" count={loadingI?'…':imported.length}
+        <CwSection
+          title="Not Yet Graded" count={loadingI?'…':imported.length}
           dotColor="#94a3b8" headerBg="rgba(255,255,255,0.02)" headerBorder="rgba(255,255,255,0.06)"
           titleColor="#94a3b8" infoLabel="Grade only"
           loading={loadingI} items={imported} isCreated={false}
           expanded={expanded} onToggle={id=>setExpanded(expanded===id?null:id)}
           grading={grading} getForm={getForm} updateForm={updateForm}
-          onStartJob={startJob} courseId={courseId}
+          onStartJob={startJob} submitting={submitting} quotaError={quotaError}
+          courseId={courseId}
         />
       </div>
 
@@ -147,7 +180,7 @@ export default function CourseDetailPage() {
   );
 }
 
-function CwSection({ title, count, dotColor, headerBg, headerBorder, titleColor, badge, badgeCls, infoLabel, loading, items, isCreated, expanded, onToggle, grading, getForm, updateForm, onStartJob, onSync, syncing, syncResult, courseId }) {
+function CwSection({ title, count, dotColor, headerBg, headerBorder, titleColor, badge, badgeCls, infoLabel, loading, items, isCreated, expanded, onToggle, grading, getForm, updateForm, onStartJob, submitting, quotaError, onSync, syncing, syncResult, courseId }) {
   return (
     <div style={{display:'flex',flexDirection:'column',gap:10}}>
       <div style={{display:'flex',alignItems:'center',gap:12,padding:'14px 18px',borderRadius:12,background:headerBg,border:`1px solid ${headerBorder}`}}>
@@ -159,12 +192,15 @@ function CwSection({ title, count, dotColor, headerBg, headerBorder, titleColor,
       </div>
       {loading ? [1,2].map(i=><div key={i} className="skeleton" style={{height:64}}/>)
         : items.length===0 ? <div className="glass-card" style={{padding:24,textAlign:'center',fontSize:13,color:'#475569',borderStyle:'dashed'}}>{isCreated?'No graded assignments yet.':'No ungraded assignments found.'}</div>
-        : items.map((cw,i) => (
+        : items.map((cw) => (
           <AssignmentCard key={cw.id} cw={cw} isCreated={isCreated}
             expanded={expanded===cw.id} onToggle={()=>onToggle(cw.id)}
             job={grading[cw.id]} form={getForm(cw)}
             onFormChange={(k,v)=>updateForm(cw.id,k,v)}
-            onStartJob={()=>onStartJob(cw)} onSync={onSync}
+            onStartJob={()=>onStartJob(cw)}
+            isSubmitting={submitting[cw.id]}
+            quotaError={quotaError?.[cw.id]}
+            onSync={onSync}
             syncing={syncing?.[cw.id]} syncResult={syncResult?.[cw.id]}
             courseId={courseId}
           />
@@ -174,10 +210,13 @@ function CwSection({ title, count, dotColor, headerBg, headerBorder, titleColor,
   );
 }
 
-function AssignmentCard({ cw, isCreated, expanded, onToggle, job, form, onFormChange, onStartJob, onSync, syncing, syncResult, courseId }) {
+function AssignmentCard({ cw, isCreated, expanded, onToggle, job, form, onFormChange, onStartJob, isSubmitting, quotaError, onSync, syncing, syncResult, courseId }) {
   const fileRef = useRef();
   const accentColor = isCreated ? '#22d3ee' : '#a78bfa';
   const borderColor = expanded ? (isCreated?'rgba(6,182,212,0.25)':'rgba(139,92,246,0.15)') : 'rgba(255,255,255,0.06)';
+
+  // Form is valid when all required fields filled
+  const formValid = form.rubricContext?.trim() && form.file && form.strictness;
 
   return (
     <div className="glass-card" style={{overflow:'hidden',borderColor,transition:'border-color 0.2s'}}>
@@ -204,42 +243,108 @@ function AssignmentCard({ cw, isCreated, expanded, onToggle, job, form, onFormCh
         <div style={{borderTop:'1px solid rgba(255,255,255,0.06)',padding:'20px 20px 24px'}}>
           {cw.description && <p style={{fontSize:13,color:'#64748b',lineHeight:1.65,marginBottom:20}}>{cw.description}</p>}
 
+          {/* Quota exhausted error */}
+          {quotaError && (
+            <div style={{marginBottom:16,padding:'16px 18px',borderRadius:12,background:'rgba(239,68,68,0.08)',border:'1px solid rgba(239,68,68,0.25)',display:'flex',alignItems:'flex-start',gap:12}}>
+              <XCircle size={18} color="#f87171" style={{flexShrink:0,marginTop:2}}/>
+              <div style={{flex:1}}>
+                <div style={{fontSize:13,fontWeight:600,color:'#f87171',marginBottom:6}}>{quotaError.message}</div>
+                <div style={{fontSize:11,color:'#64748b',marginBottom:12}}>
+                  Used: {quotaError.usedFreeCopies} / {quotaError.freeCopiesLimit} free copies
+                </div>
+                <Link to="/credits" style={{display:'inline-flex',alignItems:'center',gap:6,padding:'8px 16px',borderRadius:8,background:'rgba(16,185,129,0.1)',border:'1px solid rgba(16,185,129,0.2)',color:'#34d399',fontSize:12,fontWeight:500,textDecoration:'none'}}>
+                  <CreditCard size={12}/> Buy Credits
+                </Link>
+              </div>
+            </div>
+          )}
+
           {job && (job.state==='active'||job.state==='queued') && <JobProgress job={job}/>}
 
-          {(!job||job.state==='failed') && (
+          {(!job || job.state==='failed') && !quotaError && (
             <div style={{background:'rgba(255,255,255,0.02)',borderRadius:12,padding:20}}>
-              <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:16,color:isCreated?'#22d3ee':'#a78bfa',fontSize:15,fontWeight:500}}>
+              <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:4,color:isCreated?'#22d3ee':'#a78bfa',fontSize:15,fontWeight:500}}>
                 <Sparkles size={16}/> Configure AI Grading
               </div>
+              <p style={{fontSize:11,color:'#475569',marginBottom:16}}>All fields are required to start grading.</p>
+
+              {/* Classroom info chips */}
               <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:16}}>
                 <InfoChip label="Max Score" value={cw.maxPoints!=null?`${cw.maxPoints} pts`:'Not set'} src="Classroom"/>
                 <InfoChip label="Question Paper" value={(()=>{const n=(cw.materials||[]).filter(m=>m?.driveFile).length;return n>0?`✓ ${n} file${n>1?'s':''}`:'No Drive files';})()} src={(cw.materials||[]).filter(m=>m?.driveFile).length>0?'Classroom':null}/>
               </div>
+
               <div style={{display:'flex',flexDirection:'column',gap:14}}>
+                {/* Rubric — required */}
                 <div>
                   <label className="form-label">RUBRIC / INSTRUCTIONS <span style={{color:'#ef4444'}}>*</span></label>
-                  <textarea className="form-input" rows={4} placeholder="Describe grading criteria, key points to check..." value={form.rubricContext} onChange={e=>onFormChange('rubricContext',e.target.value)}/>
+                  <textarea
+                    className="form-input"
+                    rows={4}
+                    placeholder="Describe grading criteria, what a perfect answer looks like, key points to check..."
+                    value={form.rubricContext}
+                    onChange={e=>onFormChange('rubricContext',e.target.value)}
+                    style={{borderColor: form.rubricContext?.trim() ? 'rgba(16,185,129,0.3)' : undefined}}
+                  />
                 </div>
+
                 <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14}}>
+                  {/* Strictness — required */}
                   <div>
-                    <label className="form-label">STRICTNESS</label>
-                    <select className="form-input" style={{height:44}} value={form.strictness} onChange={e=>onFormChange('strictness',e.target.value)}>
+                    <label className="form-label">STRICTNESS <span style={{color:'#ef4444'}}>*</span></label>
+                    <select
+                      className="form-input"
+                      style={{height:44,borderColor: form.strictness ? 'rgba(16,185,129,0.3)' : undefined}}
+                      value={form.strictness}
+                      onChange={e=>onFormChange('strictness',e.target.value)}
+                    >
                       <option value="Easy">Easy</option>
                       <option value="Medium">Medium</option>
                       <option value="Hard">Hard</option>
                     </select>
                   </div>
+
+                  {/* Answer key — required */}
                   <div>
-                    <label className="form-label">ANSWER KEY <span style={{fontWeight:400,textTransform:'none',color:'#334155',fontSize:10}}>optional</span></label>
-                    <div style={{display:'flex',alignItems:'center',gap:10,height:44,padding:'0 14px',borderRadius:10,background:'rgba(255,255,255,0.03)',border:'1px solid rgba(255,255,255,0.08)',cursor:'pointer'}} onClick={()=>fileRef.current.click()}>
+                    <label className="form-label">ANSWER KEY / REFERENCE <span style={{color:'#ef4444'}}>*</span></label>
+                    <div
+                      style={{display:'flex',alignItems:'center',gap:10,height:44,padding:'0 14px',borderRadius:10,background:'rgba(255,255,255,0.03)',border:`1px solid ${form.file?'rgba(16,185,129,0.3)':'rgba(255,255,255,0.08)'}`,cursor:'pointer',transition:'border-color 0.2s'}}
+                      onClick={()=>fileRef.current.click()}
+                      onMouseEnter={e=>e.currentTarget.style.borderColor='rgba(16,185,129,0.4)'}
+                      onMouseLeave={e=>e.currentTarget.style.borderColor=form.file?'rgba(16,185,129,0.3)':'rgba(255,255,255,0.08)'}
+                    >
                       <input ref={fileRef} type="file" accept=".pdf,.doc,.docx,.txt" style={{display:'none'}} onChange={e=>onFormChange('file',e.target.files[0])}/>
-                      <Upload size={14} color="#475569"/>
-                      <span style={{fontSize:13,color:form.file?'#f1f5f9':'#334155',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{form.file?form.file.name:'Upload answer key'}</span>
+                      <Upload size={14} color={form.file?'#34d399':'#475569'}/>
+                      <span style={{fontSize:12,color:form.file?'#f1f5f9':'#334155',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+                        {form.file ? form.file.name : 'Upload required'}
+                      </span>
+                      {form.file && <CheckCircle size={12} color="#34d399" style={{marginLeft:'auto',flexShrink:0}}/>}
                     </div>
+                    <p style={{fontSize:10,color:'#334155',marginTop:4}}>PDF, DOC, DOCX, or TXT</p>
                   </div>
                 </div>
-                <div style={{display:'flex',justifyContent:'flex-end'}}>
-                  <button className="btn btn-emerald" onClick={onStartJob}><Sparkles size={14}/> Grade it Now</button>
+
+                {/* Grade button — disabled after click, re-enabled on error */}
+                <div style={{display:'flex',justifyContent:'flex-end',alignItems:'center',gap:12,paddingTop:4}}>
+                  {!formValid && (
+                    <span style={{fontSize:11,color:'#475569'}}>Fill all required fields to enable</span>
+                  )}
+                  <button
+                    className="btn btn-emerald"
+                    onClick={onStartJob}
+                    disabled={isSubmitting || !formValid}
+                    style={{
+                      minWidth:160, justifyContent:'center',
+                      opacity: (isSubmitting || !formValid) ? 0.5 : 1,
+                      cursor: (isSubmitting || !formValid) ? 'not-allowed' : 'pointer',
+                      transition:'all 0.2s',
+                    }}
+                  >
+                    {isSubmitting
+                      ? <><span className="spinner" style={{width:14,height:14}}/> Submitting…</>
+                      : <><Sparkles size={14}/> Grade it Now</>
+                    }
+                  </button>
                 </div>
               </div>
             </div>
@@ -271,7 +376,7 @@ function AssignmentCard({ cw, isCreated, expanded, onToggle, job, form, onFormCh
                 </div>
               ) : (
                 <div style={{display:'flex',alignItems:'flex-start',gap:8,padding:'10px 14px',borderRadius:10,background:'rgba(255,255,255,0.02)',border:'1px solid rgba(255,255,255,0.06)',fontSize:12,color:'#475569'}}>
-                  <Info size={12} style={{flexShrink:0,marginTop:2}}/> This assignment hasn't been graded via AutoGrade.ai yet.
+                  <Info size={12} style={{flexShrink:0,marginTop:2}}/> Sync is available for assignments graded via AutoGrade.ai.
                 </div>
               )}
 

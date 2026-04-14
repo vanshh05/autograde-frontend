@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../AuthContext';
-import { LayoutDashboard, BookOpen, PlusCircle, BarChart3, LogOut, Menu, X, ChevronRight, Check } from 'lucide-react';
+import { LayoutDashboard, BookOpen, PlusCircle, BarChart3, LogOut, Menu, X, ChevronRight, Check, CreditCard } from 'lucide-react';
 
 const NAV = [
   { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard',         id: 'dashboard' },
   { to: '/courses',   icon: BookOpen,        label: 'Courses',            id: 'courses'   },
   { to: '/create',    icon: PlusCircle,      label: 'Create Assignment',  id: 'create'    },
   { to: '/grades',    icon: BarChart3,       label: 'Results',            id: 'results'   },
+  { to: '/credits',   icon: CreditCard,      label: 'Buy Credits',         id: 'credits'   },
 ];
 
 function SidebarContent({ user, logout, onNavClick, activeId }) {

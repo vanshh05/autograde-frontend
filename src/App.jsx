@@ -9,6 +9,7 @@ import CourseDetailPage from './pages/CourseDetailPage';
 import CreateAssignmentPage from './pages/CreateAssignmentPage';
 import GradesIndexPage from './pages/GradesIndexPage';
 import GradePage from './pages/GradePage';
+import PaymentPage from './pages/PaymentPage';
 import './index.css';
 
 function Protected({ children }) {
@@ -40,6 +41,7 @@ function AppRoutes() {
       <Route path="/create"                         element={<Protected><CreateAssignmentPage/></Protected>}/>
       <Route path="/grades"                         element={<Protected><GradesIndexPage/></Protected>}/>
       <Route path="/grades/:courseId/:courseWorkId" element={<Protected><GradePage/></Protected>}/>
+      <Route path="/credits"                         element={<Protected><PaymentPage/></Protected>}/>
       <Route path="*"                               element={<Navigate to="/" replace/>}/>
     </Routes>
   );
