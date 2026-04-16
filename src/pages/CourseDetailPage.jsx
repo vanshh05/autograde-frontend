@@ -248,12 +248,23 @@ function AssignmentCard({ cw, isCreated, expanded, onToggle, job, form, onFormCh
             <div style={{marginBottom:16,padding:'16px 18px',borderRadius:12,background:'rgba(239,68,68,0.08)',border:'1px solid rgba(239,68,68,0.25)',display:'flex',alignItems:'flex-start',gap:12}}>
               <XCircle size={18} color="#f87171" style={{flexShrink:0,marginTop:2}}/>
               <div style={{flex:1}}>
-                <div style={{fontSize:13,fontWeight:600,color:'#f87171',marginBottom:6}}>{quotaError.message}</div>
-                <div style={{fontSize:11,color:'#64748b',marginBottom:12}}>
-                  Used: {quotaError.usedFreeCopies} / {quotaError.freeCopiesLimit} free copies
+                <div style={{fontSize:13,fontWeight:600,color:'#f87171',marginBottom:8}}>{quotaError.message}</div>
+                <div style={{display:'flex',flexDirection:'column',gap:4,fontSize:11,color:'#64748b',marginBottom:14}}>
+                  {quotaError.freeCopiesLimit !== undefined && (
+                    <span>Free copies: {quotaError.usedFreeCopies} used / {quotaError.freeCopiesLimit} limit</span>
+                  )}
+                  {quotaError.walletBalanceInr !== undefined && (
+                    <span>Wallet balance: ₹{Number(quotaError.walletBalanceInr).toFixed(2)}</span>
+                  )}
+                  {quotaError.requiredWalletInr !== undefined && (
+                    <span>Required: ₹{Number(quotaError.requiredWalletInr).toFixed(2)} — please recharge your wallet</span>
+                  )}
+                  {quotaError.paidCopiesToConsume !== undefined && (
+                    <span>{quotaError.paidCopiesToConsume} extra copies will be billed from wallet</span>
+                  )}
                 </div>
                 <Link to="/credits" style={{display:'inline-flex',alignItems:'center',gap:6,padding:'8px 16px',borderRadius:8,background:'rgba(16,185,129,0.1)',border:'1px solid rgba(16,185,129,0.2)',color:'#34d399',fontSize:12,fontWeight:500,textDecoration:'none'}}>
-                  <CreditCard size={12}/> Buy Credits
+                  <CreditCard size={12}/> Recharge Wallet
                 </Link>
               </div>
             </div>

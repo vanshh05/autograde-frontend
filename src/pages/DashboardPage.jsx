@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { PlusCircle, Sparkles, Clock, Upload, FileText, RefreshCw, ArrowRight } from 'lucide-react';
-import { getCourses } from '../api';
+import { getCourses, getWalletBalance } from '../api';
 import { useAuth } from '../AuthContext';
 import toast from 'react-hot-toast';
 
@@ -13,12 +13,7 @@ const GRADIENTS = [
   'linear-gradient(135deg,#d97706,#dc2626)',
 ];
 
-const STATUS_CARDS = [
-  { icon: Clock,    title: 'Grading',       subtitle: 'Active Jobs',       color: '#34d399' },
-  { icon: Upload,   title: 'Upload File',   subtitle: 'Publish',           color: '#2dd4bf' },
-  { icon: FileText, title: 'Assignments',   subtitle: 'Total',             color: '#34d399' },
-  { icon: RefreshCw,title: 'After grading', subtitle: 'Sync to Classroom', color: '#2dd4bf' },
-];
+// STATUS_CARDS now built dynamically to include wallet balance
 
 const WORKFLOW = [
   { n:1, title:'Create Assignment', desc:'Upload a question paper file, publish to Google Classroom and register it for AI grading.' },
@@ -32,12 +27,16 @@ export default function DashboardPage() {
   const nav = useNavigate();
   const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [balance, setBalance] = useState(null);
 
   useEffect(() => {
     getCourses()
       .then(d => setCourses(d.courses || []))
       .catch(() => {})
       .finally(() => setLoading(false));
+    getWalletBalance()
+      .then(r => setBalance(r.walletBalanceInr ?? 0))
+      .catch(() => setBalance(0));
   }, []);
 
   const name = user?.fullName || user?.email?.split('@')[0] || 'Teacher';
@@ -64,7 +63,12 @@ export default function DashboardPage() {
 
       {/* Status Cards */}
       <div className="dash-grid-4 fade-up" style={{animationDelay:'0.1s',marginBottom:32}}>
-        {STATUS_CARDS.map((card, i) => (
+        {[
+        { icon: Clock,    title: 'Grading',        subtitle: 'Active Jobs',         color: '#34d399' },
+        { icon: Upload,   title: 'Upload File',    subtitle: 'Publish',             color: '#2dd4bf' },
+        { icon: FileText, title: 'Assignments',    subtitle: 'Total',               color: '#34d399' },
+        { icon: RefreshCw,title: 'Wallet Balance', subtitle: balance!==null?`₹${Number(balance).toFixed(2)}`:'Loading…', color: '#a78bfa' },
+      ].map((card, i) => (
           <div key={i} className="glass-card" style={{padding:'20px 24px'}}>
             <div style={{width:44,height:44,borderRadius:12,background:'rgba(255,255,255,0.04)',border:'1px solid rgba(255,255,255,0.06)',display:'flex',alignItems:'center',justifyContent:'center',marginBottom:16}}>
               <card.icon size={22} color={card.color}/>

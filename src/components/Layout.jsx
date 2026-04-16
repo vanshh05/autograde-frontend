@@ -8,7 +8,7 @@ const NAV = [
   { to: '/courses',   icon: BookOpen,        label: 'Courses',            id: 'courses'   },
   { to: '/create',    icon: PlusCircle,      label: 'Create Assignment',  id: 'create'    },
   { to: '/grades',    icon: BarChart3,       label: 'Results',            id: 'results'   },
-  { to: '/credits',   icon: CreditCard,      label: 'Buy Credits',         id: 'credits'   },
+  { to: '/credits',   icon: CreditCard,      label: 'Wallet & Credits',         id: 'credits'   },
 ];
 
 function SidebarContent({ user, logout, onNavClick, activeId }) {

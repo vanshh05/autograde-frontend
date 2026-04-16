@@ -27,7 +27,8 @@ export const googleAuthUrl   = () => `${BASE}/api/auth/google`;
 export const googleSignupUrl = () => `${BASE}/api/auth/google/signup`;
 
 // User
-export const getUser = () => request('/api/user');
+export const getUser          = ()         => request('/api/user');
+export const getWalletBalance = ()         => request('/api/user/wallet/balance');
 
 // Courses
 export const getCourses = (pageSize = 50) => request(`/api/classroom/courses?pageSize=${pageSize}`);
@@ -40,7 +41,7 @@ export const getNotCreatedCourseWork = (courseId) => request(`/api/classroom/cou
 export const createCoursework = (courseId, formData) =>
   request(`/api/classroom/createCoursework/${courseId}`, { method:'POST', body:formData });
 
-// Grading — now returns 402 with quota info when exhausted
+// Grading — returns 402 with quota/wallet info when balance insufficient
 export const startGrading = (courseId, courseWorkId, formData) =>
   request(`/api/classroom/coursework/${courseId}/${courseWorkId}/submissions`, { method:'POST', body:formData });
 
@@ -50,17 +51,14 @@ export const getJobStatus = (courseId, courseWorkId, jobId) =>
 export const getDashboard = (courseId, courseWorkId) =>
   request(`/api/classroom/dashboard/${courseId}/${courseWorkId}`);
 
-// Sync marks — PATCH with no body
+// Sync marks
 export const syncMarksToClassroom = (courseId, courseWorkId) =>
   request(`/api/classroom/coursework/${courseId}/${courseWorkId}/submissions/marks`, { method:'PATCH' });
 
-// Payment (Razorpay)
-export const estimateSpend = (body) =>
-  request('/api/payments/estimate', { method:'POST', body:JSON.stringify(body) });
-
-export const createRazorpayOrder = (body, idempotencyKey) =>
+// Payment — wallet recharge via Razorpay (rechargeAmountInr, minimum 100)
+export const createRazorpayOrder = (rechargeAmountInr, idempotencyKey) =>
   request('/api/payments/razorpay/order', {
-    method:'POST',
-    body:JSON.stringify(body),
+    method: 'POST',
+    body: JSON.stringify({ rechargeAmountInr }),
     headers: idempotencyKey ? { 'x-idempotency-key': idempotencyKey } : {},
   });
