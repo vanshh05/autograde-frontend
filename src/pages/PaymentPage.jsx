@@ -1,10 +1,12 @@
-import { useState, useEffect } from 'react';
-import { Wallet, CreditCard, CheckCircle, AlertCircle, Plus, IndianRupee, Zap, RefreshCw } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Wallet, CreditCard, CheckCircle, AlertCircle, Plus, Zap, RefreshCw, Clock } from 'lucide-react';
 import { getWalletBalance, createRazorpayOrder } from '../api';
 import { useAuth } from '../AuthContext';
 import toast from 'react-hot-toast';
 
 const PRESETS = [100, 200, 500, 1000, 2000, 5000];
+const POLL_INTERVAL_MS = 4000;  // poll every 4s
+const POLL_MAX_ATTEMPTS = 15;   // give up after ~60s
 
 function loadRazorpay() {
   return new Promise((resolve) => {
@@ -23,21 +25,65 @@ export default function PaymentPage() {
   const [loadingBalance, setLoadingBalance] = useState(true);
   const [amount, setAmount]             = useState('');
   const [paying, setPaying]             = useState(false);
+  const [waitingWebhook, setWaitingWebhook] = useState(false); // polling for webhook
   const [lastPaid, setLastPaid]         = useState(null);
+  const pollRef = useRef(null);
 
-  const fetchBalance = async () => {
-    setLoadingBalance(true);
+  const fetchBalance = async (silent = false) => {
+    if (!silent) setLoadingBalance(true);
     try {
       const res = await getWalletBalance();
-      setBalance(res.walletBalanceInr ?? 0);
+      return res.walletBalanceInr ?? 0;
     } catch {
-      setBalance(0);
+      return 0;
     } finally {
-      setLoadingBalance(false);
+      if (!silent) setLoadingBalance(false);
     }
   };
 
-  useEffect(() => { fetchBalance(); }, []);
+  const refreshBalance = async () => {
+    setLoadingBalance(true);
+    const bal = await fetchBalance(true);
+    setBalance(bal);
+    setLoadingBalance(false);
+  };
+
+  useEffect(() => {
+    refreshBalance();
+    return () => { if (pollRef.current) clearInterval(pollRef.current); };
+  }, []);
+
+  // After Razorpay handler fires, poll until balance increases (webhook has credited)
+  const startPollingForCredit = (paidAmount, balanceBefore) => {
+    setWaitingWebhook(true);
+    let attempts = 0;
+
+    pollRef.current = setInterval(async () => {
+      attempts++;
+      const newBalance = await fetchBalance(true);
+
+      if (newBalance > balanceBefore) {
+        // Wallet credited — webhook processed
+        clearInterval(pollRef.current);
+        pollRef.current = null;
+        setBalance(newBalance);
+        setLastPaid(paidAmount);
+        setWaitingWebhook(false);
+        toast.success(`₹${paidAmount} credited! Wallet: ₹${newBalance.toFixed(2)}`);
+        return;
+      }
+
+      setBalance(newBalance); // update display even if not credited yet
+
+      if (attempts >= POLL_MAX_ATTEMPTS) {
+        clearInterval(pollRef.current);
+        pollRef.current = null;
+        setWaitingWebhook(false);
+        // Show balance as-is and tell user to manually refresh
+        toast('Payment received. Balance will update once confirmed by Razorpay — click Refresh if needed.', { icon: '⏳', duration: 6000 });
+      }
+    }, POLL_INTERVAL_MS);
+  };
 
   const handlePay = async () => {
     const amt = Number(amount);
@@ -51,6 +97,9 @@ export default function PaymentPage() {
       const idempotencyKey = `recharge-${user?.id}-${Date.now()}`;
       const orderRes = await createRazorpayOrder(amt, idempotencyKey);
 
+      // Capture balance before payment to detect the increase
+      const balanceBefore = balance ?? 0;
+
       const options = {
         key:         orderRes.keyId,
         amount:      orderRes.order.amountPaise,
@@ -63,13 +112,12 @@ export default function PaymentPage() {
           email: user?.email   || '',
         },
         theme: { color: '#059669' },
-        handler: async () => {
-          setLastPaid(amt);
-          setAmount('');
-          toast.success(`₹${amt} credited to your wallet!`);
-          // Refresh balance after short delay for webhook to process
-          setTimeout(fetchBalance, 2000);
+        handler: () => {
+          // Payment captured on Razorpay's side — webhook may take a few seconds
           setPaying(false);
+          setAmount('');
+          toast('Payment successful! Waiting for wallet credit…', { icon: '⏳', duration: 4000 });
+          startPollingForCredit(amt, balanceBefore);
         },
         modal: {
           ondismiss: () => setPaying(false),
@@ -117,8 +165,8 @@ export default function PaymentPage() {
           </div>
           <button
             className="btn btn-outline btn-sm"
-            onClick={fetchBalance}
-            disabled={loadingBalance}
+            onClick={refreshBalance}
+            disabled={loadingBalance || waitingWebhook}
             style={{display:'flex',alignItems:'center',gap:6}}
           >
             <RefreshCw size={13} className={loadingBalance?'spin-anim':''}/>
@@ -126,10 +174,19 @@ export default function PaymentPage() {
           </button>
         </div>
 
-        {lastPaid && (
+        {/* Webhook polling status */}
+        {waitingWebhook && (
+          <div style={{marginTop:16,padding:'12px 16px',borderRadius:10,background:'rgba(234,179,8,0.08)',border:'1px solid rgba(234,179,8,0.25)',display:'flex',alignItems:'center',gap:10,fontSize:13,color:'#facc15'}}>
+            <Clock size={15} style={{flexShrink:0,animation:'spin 2s linear infinite'}}/>
+            <span>Payment received — waiting for wallet credit confirmation. This usually takes a few seconds…</span>
+          </div>
+        )}
+
+        {/* Success banner */}
+        {lastPaid && !waitingWebhook && (
           <div style={{marginTop:16,padding:'10px 14px',borderRadius:10,background:'rgba(16,185,129,0.07)',border:'1px solid rgba(16,185,129,0.2)',display:'flex',alignItems:'center',gap:8,fontSize:13,color:'#34d399'}}>
             <CheckCircle size={14}/>
-            ₹{lastPaid} successfully credited! Balance may take a moment to update.
+            ₹{lastPaid} successfully credited to your wallet!
           </div>
         )}
       </div>
@@ -147,7 +204,7 @@ export default function PaymentPage() {
         <h2 style={{fontSize:16,fontWeight:600,marginBottom:6,display:'flex',alignItems:'center',gap:8}}>
           <Plus size={16} color="#34d399"/> Recharge Wallet
         </h2>
-        <p style={{fontSize:12,color:'#475569',marginBottom:20}}>Minimum recharge: ₹100. Amount is credited instantly after payment.</p>
+        <p style={{fontSize:12,color:'#475569',marginBottom:20}}>Minimum recharge: ₹100. Credited after Razorpay confirms payment (usually within seconds).</p>
 
         {/* Preset amounts */}
         <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:10,marginBottom:20}}>
@@ -156,7 +213,8 @@ export default function PaymentPage() {
               key={p}
               onClick={() => setAmount(String(p))}
               style={{
-                padding:'12px 8px',borderRadius:10,border:`1px solid ${Number(amount)===p?'rgba(16,185,129,0.5)':'rgba(255,255,255,0.08)'}`,
+                padding:'12px 8px',borderRadius:10,
+                border:`1px solid ${Number(amount)===p?'rgba(16,185,129,0.5)':'rgba(255,255,255,0.08)'}`,
                 background: Number(amount)===p ? 'rgba(16,185,129,0.1)' : 'rgba(255,255,255,0.02)',
                 color: Number(amount)===p ? '#34d399' : '#94a3b8',
                 cursor:'pointer',fontSize:14,fontWeight:500,fontFamily:'monospace',
@@ -194,10 +252,12 @@ export default function PaymentPage() {
           className="btn btn-sync"
           style={{width:'100%',justifyContent:'center',height:52,fontSize:15}}
           onClick={handlePay}
-          disabled={paying || !amount || Number(amount) < 100}
+          disabled={paying || waitingWebhook || !amount || Number(amount) < 100}
         >
           {paying
             ? <><span className="spinner" style={{width:16,height:16}}/> Opening Payment…</>
+            : waitingWebhook
+            ? <><span className="spinner" style={{width:16,height:16}}/> Confirming…</>
             : <><CreditCard size={16}/> Pay ₹{amount || '0'} via Razorpay</>
           }
         </button>
@@ -214,13 +274,13 @@ export default function PaymentPage() {
         </h3>
         <div style={{display:'flex',flexDirection:'column',gap:10}}>
           {[
-            {label:'Free tier',         val:'5 submissions / account',         color:'#34d399'},
-            {label:'Gemini Input',       val:'₹0.15 / 1k tokens',              color:'#94a3b8'},
-            {label:'Gemini Output',      val:'₹0.60 / 1k tokens',              color:'#94a3b8'},
-            {label:'OCR Processing',     val:'₹0.80 / page',                   color:'#94a3b8'},
-            {label:'GCS Storage',        val:'₹2.00 / GB',                     color:'#94a3b8'},
-            {label:'GCS Egress',         val:'₹7.00 / GB',                     color:'#94a3b8'},
-            {label:'Platform fee',       val:'30% of base cost',               color:'#a78bfa'},
+            {label:'Free tier',     val:'5 submissions / account', color:'#34d399'},
+            {label:'Gemini Input',  val:'₹0.15 / 1k tokens',       color:'#94a3b8'},
+            {label:'Gemini Output', val:'₹0.60 / 1k tokens',       color:'#94a3b8'},
+            {label:'OCR Processing',val:'₹0.80 / page',            color:'#94a3b8'},
+            {label:'GCS Storage',   val:'₹2.00 / GB',              color:'#94a3b8'},
+            {label:'GCS Egress',    val:'₹7.00 / GB',              color:'#94a3b8'},
+            {label:'Platform fee',  val:'30% of base cost',         color:'#a78bfa'},
           ].map(r => (
             <div key={r.label} style={{display:'flex',justifyContent:'space-between',fontSize:12,alignItems:'center'}}>
               <span style={{color:'#475569'}}>{r.label}</span>
