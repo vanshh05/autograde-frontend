@@ -27,8 +27,8 @@ export const googleAuthUrl   = () => `${BASE}/api/auth/google`;
 export const googleSignupUrl = () => `${BASE}/api/auth/google/signup`;
 
 // User
-export const getUser          = ()         => request('/api/user');
-export const getWalletBalance = ()         => request('/api/user/wallet/balance');
+export const getUser          = () => request('/api/user');
+export const getWalletBalance = () => request('/api/user/wallet/balance');
 
 // Courses
 export const getCourses = (pageSize = 50) => request(`/api/classroom/courses?pageSize=${pageSize}`);
@@ -41,7 +41,7 @@ export const getNotCreatedCourseWork = (courseId) => request(`/api/classroom/cou
 export const createCoursework = (courseId, formData) =>
   request(`/api/classroom/createCoursework/${courseId}`, { method:'POST', body:formData });
 
-// Grading — returns 402 with quota/wallet info when balance insufficient
+// Grading
 export const startGrading = (courseId, courseWorkId, formData) =>
   request(`/api/classroom/coursework/${courseId}/${courseWorkId}/submissions`, { method:'POST', body:formData });
 
@@ -55,10 +55,18 @@ export const getDashboard = (courseId, courseWorkId) =>
 export const syncMarksToClassroom = (courseId, courseWorkId) =>
   request(`/api/classroom/coursework/${courseId}/${courseWorkId}/submissions/marks`, { method:'PATCH' });
 
-// Payment — wallet recharge via Razorpay (rechargeAmountInr, minimum 100)
+// Payment
 export const createRazorpayOrder = (rechargeAmountInr, idempotencyKey) =>
   request('/api/payments/razorpay/order', {
     method: 'POST',
     body: JSON.stringify({ rechargeAmountInr }),
     headers: idempotencyKey ? { 'x-idempotency-key': idempotencyKey } : {},
+  });
+
+// Verify payment + credit wallet — call after Razorpay handler fires
+// Returns: { message, orderId, paymentId, status, amountInr, walletBalanceInr }
+export const verifyRazorpayPayment = (razorpay_order_id, razorpay_payment_id, razorpay_signature) =>
+  request('/api/payments/razorpay/verify', {
+    method: 'POST',
+    body: JSON.stringify({ razorpay_order_id, razorpay_payment_id, razorpay_signature }),
   });

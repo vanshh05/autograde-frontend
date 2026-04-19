@@ -1,12 +1,10 @@
-import { useState, useEffect, useRef } from 'react';
-import { Wallet, CreditCard, CheckCircle, AlertCircle, Plus, Zap, RefreshCw, Clock } from 'lucide-react';
-import { getWalletBalance, createRazorpayOrder } from '../api';
+import { useState, useEffect } from 'react';
+import { Wallet, CreditCard, CheckCircle, AlertCircle, Plus, Zap, RefreshCw } from 'lucide-react';
+import { getWalletBalance, createRazorpayOrder, verifyRazorpayPayment } from '../api';
 import { useAuth } from '../AuthContext';
 import toast from 'react-hot-toast';
 
 const PRESETS = [100, 200, 500, 1000, 2000, 5000];
-const POLL_INTERVAL_MS  = 4000;
-const POLL_MAX_ATTEMPTS = 15; // ~60 seconds total
 
 function loadRazorpay() {
   return new Promise((resolve) => {
@@ -25,61 +23,21 @@ export default function PaymentPage() {
   const [loadingBalance, setLoadingBalance] = useState(true);
   const [amount, setAmount]                 = useState('');
   const [paying, setPaying]                 = useState(false);
-  const [waitingWebhook, setWaitingWebhook] = useState(false);
   const [lastPaid, setLastPaid]             = useState(null);
-  const pollRef = useRef(null);
-
-  // Fetch balance, returns the value
-  const fetchBalance = async () => {
-    try {
-      const res = await getWalletBalance();
-      return res.walletBalanceInr ?? 0;
-    } catch {
-      return 0;
-    }
-  };
 
   const refreshBalance = async () => {
     setLoadingBalance(true);
-    const bal = await fetchBalance();
-    setBalance(bal);
-    setLoadingBalance(false);
+    try {
+      const res = await getWalletBalance();
+      setBalance(res.walletBalanceInr ?? 0);
+    } catch {
+      setBalance(0);
+    } finally {
+      setLoadingBalance(false);
+    }
   };
 
-  useEffect(() => {
-    refreshBalance();
-    return () => { if (pollRef.current) clearInterval(pollRef.current); };
-  }, []);
-
-  // Poll until balance increases above balanceBefore (webhook credited it)
-  const startPollingForCredit = (paidAmount, balanceBefore) => {
-    setWaitingWebhook(true);
-    let attempts = 0;
-
-    pollRef.current = setInterval(async () => {
-      attempts++;
-      const newBalance = await fetchBalance();
-      setBalance(newBalance);
-
-      if (newBalance > balanceBefore) {
-        clearInterval(pollRef.current);
-        pollRef.current = null;
-        setWaitingWebhook(false);
-        setLastPaid(paidAmount);
-        toast.success(`₹${paidAmount} credited! New balance: ₹${newBalance.toFixed(2)}`);
-        return;
-      }
-
-      if (attempts >= POLL_MAX_ATTEMPTS) {
-        clearInterval(pollRef.current);
-        pollRef.current = null;
-        setWaitingWebhook(false);
-        toast('Payment received. Balance will update once Razorpay confirms — click Refresh if needed.', {
-          icon: '⏳', duration: 6000,
-        });
-      }
-    }, POLL_INTERVAL_MS);
-  };
+  useEffect(() => { refreshBalance(); }, []);
 
   const handlePay = async () => {
     const amt = Number(amount);
@@ -97,8 +55,6 @@ export default function PaymentPage() {
       const idempotencyKey = `recharge-${user?.id}-${Date.now()}`;
       const orderRes = await createRazorpayOrder(amt, idempotencyKey);
 
-      const balanceBefore = balance ?? 0;
-
       const options = {
         key:         orderRes.keyId,
         amount:      orderRes.order.amountPaise,
@@ -112,22 +68,26 @@ export default function PaymentPage() {
         },
         theme: { color: '#059669' },
 
-        // IMPORTANT: handler receives the Razorpay response object with
-        // razorpay_order_id, razorpay_payment_id, razorpay_signature.
-        // There is no /verify endpoint in this backend — wallet is credited
-        // via the Razorpay webhook (payment.captured). We poll until it lands.
-        handler: (response) => {
-          // Log the payment IDs for debugging; wallet credit comes via webhook
-          console.log('[Razorpay] Payment captured:', {
-            orderId:    response.razorpay_order_id,
-            paymentId:  response.razorpay_payment_id,
-            signature:  response.razorpay_signature,
-          });
-
-          setPaying(false);
-          setAmount('');
-          toast('Payment successful! Waiting for wallet credit…', { icon: '⏳', duration: 4000 });
-          startPollingForCredit(amt, balanceBefore);
+        // Razorpay calls this with the payment response after user completes checkout.
+        // We immediately call /verify which verifies the signature, marks order paid,
+        // credits the wallet, and returns the new walletBalanceInr — all in one step.
+        handler: async (response) => {
+          try {
+            const verified = await verifyRazorpayPayment(
+              response.razorpay_order_id,
+              response.razorpay_payment_id,
+              response.razorpay_signature
+            );
+            // Backend returns new wallet balance directly
+            setBalance(verified.walletBalanceInr);
+            setLastPaid(amt);
+            setAmount('');
+            toast.success(`₹${amt} credited! Wallet balance: ₹${verified.walletBalanceInr.toFixed(2)}`);
+          } catch (err) {
+            toast.error(err.message || 'Payment verification failed. Contact support.');
+          } finally {
+            setPaying(false);
+          }
         },
 
         modal: {
@@ -137,7 +97,6 @@ export default function PaymentPage() {
 
       const rzp = new window.Razorpay(options);
       rzp.on('payment.failed', (response) => {
-        console.error('[Razorpay] Payment failed:', response.error);
         toast.error(response.error?.description || 'Payment failed. Please try again.');
         setPaying(false);
       });
@@ -178,7 +137,7 @@ export default function PaymentPage() {
           <button
             className="btn btn-outline btn-sm"
             onClick={refreshBalance}
-            disabled={loadingBalance || waitingWebhook}
+            disabled={loadingBalance || paying}
             style={{display:'flex',alignItems:'center',gap:6}}
           >
             <RefreshCw size={13} className={loadingBalance ? 'spin-anim' : ''}/>
@@ -186,16 +145,7 @@ export default function PaymentPage() {
           </button>
         </div>
 
-        {/* Webhook pending banner */}
-        {waitingWebhook && (
-          <div style={{marginTop:16,padding:'12px 16px',borderRadius:10,background:'rgba(234,179,8,0.08)',border:'1px solid rgba(234,179,8,0.25)',display:'flex',alignItems:'center',gap:10,fontSize:13,color:'#facc15'}}>
-            <Clock size={15} style={{flexShrink:0,animation:'spin 2s linear infinite'}}/>
-            <span>Payment received — waiting for wallet credit confirmation from Razorpay. Checking every 4 seconds…</span>
-          </div>
-        )}
-
-        {/* Success banner */}
-        {lastPaid && !waitingWebhook && (
+        {lastPaid && (
           <div style={{marginTop:16,padding:'10px 14px',borderRadius:10,background:'rgba(16,185,129,0.07)',border:'1px solid rgba(16,185,129,0.2)',display:'flex',alignItems:'center',gap:8,fontSize:13,color:'#34d399'}}>
             <CheckCircle size={14}/>
             ₹{lastPaid} successfully credited to your wallet!
@@ -217,7 +167,7 @@ export default function PaymentPage() {
           <Plus size={16} color="#34d399"/> Recharge Wallet
         </h2>
         <p style={{fontSize:12,color:'#475569',marginBottom:20}}>
-          Minimum ₹100. Credited after Razorpay confirms payment (usually within seconds via webhook).
+          Minimum ₹100. Balance updates instantly after payment is verified.
         </p>
 
         {/* Presets */}
@@ -266,12 +216,10 @@ export default function PaymentPage() {
           className="btn btn-sync"
           style={{width:'100%',justifyContent:'center',height:52,fontSize:15}}
           onClick={handlePay}
-          disabled={paying || waitingWebhook || !amount || Number(amount) < 100}
+          disabled={paying || !amount || Number(amount) < 100}
         >
           {paying
-            ? <><span className="spinner" style={{width:16,height:16}}/> Opening Payment…</>
-            : waitingWebhook
-            ? <><span className="spinner" style={{width:16,height:16}}/> Confirming…</>
+            ? <><span className="spinner" style={{width:16,height:16}}/> Processing…</>
             : <><CreditCard size={16}/> Pay ₹{amount || '0'} via Razorpay</>
           }
         </button>
@@ -281,7 +229,7 @@ export default function PaymentPage() {
         </p>
       </div>
 
-      {/* Pricing info */}
+      {/* Pricing breakdown */}
       <div className="glass-card fade-up" style={{padding:24,marginTop:20,animationDelay:'0.16s'}}>
         <h3 style={{fontSize:14,fontWeight:600,marginBottom:16,color:'#94a3b8',display:'flex',alignItems:'center',gap:7}}>
           <Zap size={14} color="#34d399"/> How billing works
