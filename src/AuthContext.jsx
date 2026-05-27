@@ -16,14 +16,25 @@ export function AuthProvider({ children }) {
   }, []);
 
   useEffect(() => {
+    // Pick up accessToken from Google OAuth redirect
     const params = new URLSearchParams(window.location.search);
     const token = params.get('accessToken');
-    if (token) { localStorage.setItem('authToken', token); window.history.replaceState({}, '', window.location.pathname); }
+    if (token) {
+      localStorage.setItem('authToken', token);
+      window.history.replaceState({}, '', window.location.pathname);
+    }
     loadUser();
   }, [loadUser]);
 
-  const loginSuccess = (token, userData) => { localStorage.setItem('authToken', token); setUser(userData); };
-  const logout = () => { localStorage.removeItem('authToken'); setUser(null); };
+  const loginSuccess = (token, userData) => {
+    localStorage.setItem('authToken', token);
+    setUser(userData);
+  };
+
+  const logout = () => {
+    localStorage.removeItem('authToken');
+    setUser(null);
+  };
 
   return (
     <AuthContext.Provider value={{ user, loading, loginSuccess, logout }}>

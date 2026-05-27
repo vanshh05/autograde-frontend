@@ -21,10 +21,7 @@ async function request(path, options = {}) {
 }
 
 // Auth
-export const login  = (email, fullName) => request('/api/auth/login',  { method:'POST', body:JSON.stringify({ email, fullName }) });
-export const signup = (email, fullName) => request('/api/auth/signup', { method:'POST', body:JSON.stringify({ email, fullName }) });
 export const googleAuthUrl   = () => `${BASE}/api/auth/google`;
-export const googleSignupUrl = () => `${BASE}/api/auth/google/signup`;
 
 // User
 export const getUser          = () => request('/api/user');

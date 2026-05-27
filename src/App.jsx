@@ -10,6 +10,8 @@ import CreateAssignmentPage from './pages/CreateAssignmentPage';
 import GradesIndexPage from './pages/GradesIndexPage';
 import GradePage from './pages/GradePage';
 import PaymentPage from './pages/PaymentPage';
+import PrivacyPage from './pages/PrivacyPage';
+import TermsPage from './pages/TermsPage';
 import './index.css';
 
 function Protected({ children }) {
@@ -34,15 +36,21 @@ function Public({ children }) {
 function AppRoutes() {
   return (
     <Routes>
-      <Route path="/"                               element={<Public><AuthPage/></Public>}/>
+      {/* Public */}
+      <Route path="/"        element={<Public><AuthPage/></Public>}/>
+      <Route path="/privacy" element={<PrivacyPage/>}/>
+      <Route path="/terms"   element={<TermsPage/>}/>
+
+      {/* Protected */}
       <Route path="/dashboard"                      element={<Protected><DashboardPage/></Protected>}/>
       <Route path="/courses"                        element={<Protected><CoursesPage/></Protected>}/>
       <Route path="/courses/:courseId"              element={<Protected><CourseDetailPage/></Protected>}/>
       <Route path="/create"                         element={<Protected><CreateAssignmentPage/></Protected>}/>
       <Route path="/grades"                         element={<Protected><GradesIndexPage/></Protected>}/>
       <Route path="/grades/:courseId/:courseWorkId" element={<Protected><GradePage/></Protected>}/>
-      <Route path="/credits"                         element={<Protected><PaymentPage/></Protected>}/>
-      <Route path="*"                               element={<Navigate to="/" replace/>}/>
+      <Route path="/credits"                        element={<Protected><PaymentPage/></Protected>}/>
+
+      <Route path="*" element={<Navigate to="/" replace/>}/>
     </Routes>
   );
 }
