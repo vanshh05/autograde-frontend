@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../AuthContext';
-import { LayoutDashboard, BookOpen, PlusCircle, BarChart3, LogOut, Menu, X, ChevronRight, Check, CreditCard } from 'lucide-react';
+import { LayoutDashboard, BookOpen, PlusCircle, BarChart3, LogOut, Menu, X, ChevronRight, CreditCard } from 'lucide-react';
 
 const NAV = [
   { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard',         id: 'dashboard' },
@@ -19,9 +19,7 @@ function SidebarContent({ user, logout, onNavClick, activeId }) {
     <>
       {/* Logo */}
       <div className="sb-logo">
-        <div className="sb-logo-icon">
-          <Check size={22} color="#34d399" strokeWidth={3}/>
-        </div>
+        <img src="/logo.png" alt="AutoGrade.ai" style={{width:32,height:32,borderRadius:8,objectFit:'cover',flexShrink:0}}/>
         <span className="sb-logo-text">AutoGrade<span>.ai</span></span>
       </div>
 

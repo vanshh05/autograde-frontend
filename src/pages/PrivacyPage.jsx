@@ -125,8 +125,8 @@ function LegalPage({ title, updated, children }) {
         {/* Header */}
         <div style={{marginBottom:48}}>
           <a href="/" style={{display:'inline-flex',alignItems:'center',gap:10,textDecoration:'none',marginBottom:40}}>
-            <div style={{width:36,height:36,borderRadius:10,background:'rgba(16,185,129,0.1)',border:'1px solid rgba(16,185,129,0.2)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:18}}>✓</div>
-            <span style={{fontSize:17,fontWeight:600,color:'#f1f5f9',letterSpacing:'-0.02em'}}>AutoGrade<span style={{color:'#475569',fontWeight:400}}>.ai</span></span>
+            <img src="/logo.png" alt="AutoGrade.live" style={{width:36,height:36,borderRadius:10,objectFit:'cover'}}/>
+            <span style={{fontSize:17,fontWeight:600,color:'#f1f5f9',letterSpacing:'-0.02em'}}>AutoGrade<span style={{color:'#475569',fontWeight:400}}>.live</span></span>
           </a>
           <h1 style={{fontSize:'clamp(28px,4vw,44px)',fontWeight:600,letterSpacing:'-0.02em',marginBottom:12}}>{title}</h1>
           <p style={{fontSize:13,color:'#475569'}}>Last updated: {updated}</p>

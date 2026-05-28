@@ -1,5 +1,3 @@
-import { useNavigate } from 'react-router-dom';
-import { Check } from 'lucide-react';
 import { googleAuthUrl } from '../api';
 
 export default function AuthPage() {
@@ -10,7 +8,7 @@ export default function AuthPage() {
 
       <div className="auth-inner">
         <header className="auth-header">
-          <div className="auth-logo-icon"><Check size={22} color="#34d399" strokeWidth={3}/></div>
+          <img src="/logo.png" alt="AutoGrade.ai" style={{width:40,height:40,borderRadius:12,objectFit:'cover'}}/>
           <span className="auth-logo-text">AutoGrade<span style={{color:'#475569',fontWeight:400}}>.ai</span></span>
         </header>
 
@@ -44,9 +42,7 @@ export default function AuthPage() {
           <div className="auth-right fade-up" style={{animationDelay:'0.1s'}}>
             <div className="auth-card">
               <div style={{textAlign:'center',marginBottom:28}}>
-                <div className="auth-logo-icon" style={{width:56,height:56,borderRadius:16,margin:'0 auto 16px',border:'1px solid rgba(16,185,129,0.3)'}}>
-                  <Check size={28} color="#34d399" strokeWidth={3}/>
-                </div>
+                <img src="/logo.png" alt="AutoGrade.ai" style={{width:64,height:64,borderRadius:16,objectFit:'cover',margin:'0 auto 16px',display:'block'}}/>
                 <h2 style={{fontSize:22,fontWeight:600,marginBottom:6,letterSpacing:'-0.02em'}}>Welcome back</h2>
                 <p style={{fontSize:13,color:'#64748b',lineHeight:1.6}}>Sign in with your Google account to access your courses and grading jobs.</p>
               </div>
