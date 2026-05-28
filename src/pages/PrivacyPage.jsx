@@ -1,6 +1,6 @@
 export default function PrivacyPage() {
   const domain = 'autograde.live'; // update to your actual domain
-  const email  = 'privacy@autograde.live';
+  const email  = 'dodoxuxumomo@gmail.com';
   const date   = 'June 2025';
 
   return (
@@ -71,7 +71,7 @@ export default function PrivacyPage() {
       </Section>
 
       <Section title="6. Google API Disclosure">
-        <p>AutoGrade.ai's use and transfer of information received from Google APIs adheres to the <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" rel="noopener noreferrer" style={{color:'#34d399'}}>Google API Services User Data Policy</a>, including the Limited Use requirements.</p>
+        <p>AutoGrade.live's use and transfer of information received from Google APIs adheres to the <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" rel="noopener noreferrer" style={{color:'#34d399'}}>Google API Services User Data Policy</a>, including the Limited Use requirements.</p>
         <p>Specifically:</p>
         <ul>
           <li>We only request the minimum scopes necessary</li>
@@ -101,7 +101,7 @@ export default function PrivacyPage() {
       </Section>
 
       <Section title="9. Children's Privacy">
-        <p>AutoGrade.ai is intended for use by teachers and educational institutions. We do not knowingly collect personal data from children under 13. If you believe a child has provided us with personal information, please contact us immediately.</p>
+        <p>AutoGrade.live is intended for use by teachers and educational institutions. We do not knowingly collect personal data from children under 13. If you believe a child has provided us with personal information, please contact us immediately.</p>
       </Section>
 
       <Section title="10. Changes to This Policy">
